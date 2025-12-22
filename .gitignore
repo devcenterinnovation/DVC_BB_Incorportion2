@@ -144,3 +144,6 @@ acli/
 
 # Test files
 test*
+
+# Firebase config
+firebaseConfigs.js
