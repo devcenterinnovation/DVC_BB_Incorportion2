@@ -1,0 +1,42 @@
+//.ms/tsconfig to read more about this Visit https://aka file
+{
+  "compilerOptions": {
+    // File Layout
+    "rootDir": "./src",
+    "outDir": "./dist",
+    // Environment Settings
+    // See also https://aka.ms/tsconfig/module
+    "target": "ES2020",
+    "module": "Node16",
+    "types": [],
+    // Other Outputs
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false,
+    "moduleResolution": "node16",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    // Recommended Options
+    "strict": false, 
+    "noImplicitAny": false,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "src/**/*.d.ts"],
+  "exclude": [
+    "Client",
+    "client",
+    "node_modules",
+    "scripts",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "src/index.firebase.ts"
+  ]
+}

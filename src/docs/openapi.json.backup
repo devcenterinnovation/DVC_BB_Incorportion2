@@ -1,0 +1,474 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Business API",
+    "version": "1.0.0",
+    "description": "Unified specification for Admin and Customer endpoints (dev/debug endpoints included)."
+  },
+  "servers": [
+    { "url": "http://localhost:3000" }
+  ],
+  "tags": [
+    { "name": "Health" },
+    { "name": "Auth" },
+    { "name": "Customer" },
+    { "name": "Admin" },
+    { "name": "Business" },
+    { "name": "Dev/Debug" },
+    { "name": "Monitoring" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Use 'Authorization: Token ck_...' for customer API key auth"
+      }
+    },
+    "schemas": {
+      "OkWrapper": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": { "type": "object" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string", "example": "INVALID_API_KEY" },
+              "message": { "type": "string", "example": "Invalid or expired customer API key" }
+            },
+            "required": ["code", "message"]
+          }
+        },
+        "required": ["success", "error"]
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Service health",
+        "responses": {
+          "200": { "description": "OK" }
+        }
+      }
+    },
+
+    "/api/v1/admin/auth/login": {
+      "post": {
+        "tags": ["Auth", "Admin"],
+        "summary": "Admin login (JWT)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Logged in", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "401": { "description": "Invalid credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/admin/profile": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get admin profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { 
+            "description": "Admin profile retrieved successfully",
+            "content": { 
+              "application/json": { 
+                "schema": { 
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "admin": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string", "example": "admin_001" },
+                            "email": { "type": "string", "format": "email", "example": "admin@yourcompany.com" },
+                            "role": { "type": "string", "example": "super_admin" },
+                            "permissions": { "type": "array", "items": { "type": "string" }, "example": ["view_all", "manage_customers", "manage_billing", "manage_system"] },
+                            "lastLogin": { "type": "string", "format": "date-time" },
+                            "createdAt": { "type": "string", "format": "date-time" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                } 
+              } 
+            }
+          },
+          "401": { "description": "Unauthorized - Invalid or missing token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update admin profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "newemail@yourcompany.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { 
+            "description": "Profile updated successfully",
+            "content": { 
+              "application/json": { 
+                "schema": { 
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "admin": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string", "example": "admin_001" },
+                            "email": { "type": "string", "format": "email" },
+                            "role": { "type": "string", "example": "super_admin" },
+                            "permissions": { "type": "array", "items": { "type": "string" } },
+                            "lastLogin": { "type": "string", "format": "date-time" },
+                            "createdAt": { "type": "string", "format": "date-time" }
+                          }
+                        }
+                      }
+                    },
+                    "message": { "type": "string", "example": "Admin profile updated successfully" }
+                  }
+                } 
+              } 
+            }
+          },
+          "400": { "description": "Bad request - Invalid email format", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Unauthorized - Invalid or missing token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/admin/auth/profile": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get admin profile (legacy path)",
+        "deprecated": true,
+        "description": "Use /api/v1/admin/profile instead",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Admin profile retrieved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/customer/auth/signup": {
+      "post": {
+        "tags": ["Auth", "Customer"],
+        "summary": "Customer signup (JWT)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "company": { "type": "string" },
+                  "plan": { "type": "string", "enum": ["basic", "pro"] }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created (JWT issued)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "400": { "description": "Weak password / bad request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Email exists", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/customer/auth/login": {
+      "post": {
+        "tags": ["Auth", "Customer"],
+        "summary": "Customer login (JWT)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Logged in", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "401": { "description": "Invalid credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/customer/me": {
+      "get": {
+        "tags": ["Customer"],
+        "summary": "Get current customer profile",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+
+    "/api/v1/customer/api-keys": {
+      "get": {
+        "tags": ["Customer"],
+        "summary": "List API keys",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Keys" } }
+      },
+      "post": {
+        "tags": ["Customer"],
+        "summary": "Create API key (returns plaintext once)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" } } } } }
+        },
+        "responses": { "200": { "description": "Created" }, "401": { "description": "Unauthorized" } }
+      }
+    },
+
+    "/api/v1/customer/api-keys/{id}": {
+      "delete": {
+        "tags": ["Customer"],
+        "summary": "Revoke API key",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": { "200": { "description": "Revoked" }, "400": { "description": "Key not found" } }
+      }
+    },
+
+    "/api/v1/customer/usage": {
+      "get": {
+        "tags": ["Customer"],
+        "summary": "Get usage",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Usage" } }
+      }
+    },
+
+    "/api/v1/name-search": {
+      "post": {
+        "tags": ["Business"],
+        "summary": "Business name search / availability",
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "SearchType": { "type": "string", "example": "ALL" },
+                  "searchTerm": { "type": "string", "example": "DANGOTE" },
+                  "maxResults": { "type": "integer", "example": 3 }
+                },
+                "required": ["SearchType", "searchTerm"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Results", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "400": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/name-similarity_removed": {
+      "post": {
+        "tags": ["Business"],
+        "summary": "Business name similarity scoring",
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "SearchType": { "type": "string", "example": "ALL" },
+                  "searchTerm": { "type": "string", "example": "DANGOTE" },
+                  "maxResults": { "type": "integer", "example": 3 }
+                },
+                "required": ["SearchType", "searchTerm"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Results", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "400": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/business/register": {
+      "post": {
+        "tags": ["Business"],
+        "summary": "Submit business name registration",
+        "security": [{ "bearerAuth": [] }, { "apiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ref": { "type": "string", "example": "REF12345" },
+                  "full_name": { "type": "string", "example": "John Doe" },
+                  "business_name1": { "type": "string", "example": "ACME GLOBAL LTD" },
+                  "business_name2": { "type": "string", "example": "ACME GLOBAL LIMITED" },
+                  "nature_of_business": { "type": "string", "example": "General trading and services across multiple sectors" },
+                  "date_of_birth": { "type": "string", "example": "01-01-1990" },
+                  "email": { "type": "string", "format": "email", "example": "refsilva@yahoo.com" },
+                  "phone": { "type": "string", "example": "08012345678" },
+                  "image_id_card": { "type": "string", "example": "data:image/png;base64,AAAA..." },
+                  "image_passport": { "type": "string", "example": "data:image/png;base64,AAAA..." },
+                  "image_signature": { "type": "string", "example": "data:image/png;base64,AAAA..." }
+                },
+                "required": ["ref", "full_name", "business_name1", "business_name2", "nature_of_business", "email", "phone", "date_of_birth", "image_id_card", "image_passport", "image_signature"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Registration submitted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OkWrapper" } } } },
+          "400": { "description": "Invalid request", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+
+    "/api/v1/admin/audit/self": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "View recent admin actions (audit)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [ { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } } ],
+        "responses": { "200": { "description": "Audit entries" }, "401": { "description": "Unauthorized" } }
+      }
+    },
+
+    "/api/v1/admin/dev/reset-password": {
+      "post": {
+        "tags": ["Dev/Debug"],
+        "summary": "DEV ONLY: reset admin password from env",
+        "responses": { "200": { "description": "Reset OK" }, "403": { "description": "Forbidden in prod" } }
+      }
+    },
+
+    "/api/v1/admin/dev/seed": {
+      "post": {
+        "tags": ["Dev/Debug"],
+        "summary": "DEV ONLY: seed admin email/password",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "email": { "type": "string", "format": "email" }, "password": { "type": "string" } }, "required": ["email", "password"] } } }
+        },
+        "responses": { "200": { "description": "Seeded" }, "403": { "description": "Forbidden in prod" } }
+      }
+    },
+
+    "/api/v1/admin/debug/verify-token-detailed": {
+      "post": {
+        "tags": ["Dev/Debug"],
+        "summary": "Verify a plaintext API key against DB",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "token": { "type": "string" } }, "required": ["token"] } } }
+        },
+        "responses": { "200": { "description": "Verification details" } }
+      }
+    },
+
+    "/api/v1/admin/debug/import-plain-key": {
+      "post": {
+        "tags": ["Dev/Debug"],
+        "summary": "Import a plaintext key from vault to DB",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "plainKey": { "type": "string" } }, "required": ["plainKey"] } } }
+        },
+        "responses": { "200": { "description": "Imported or already exists" }, "400": { "description": "Not found in vault" } }
+      }
+    },
+
+    "/api/v1/admin/debug/plain-keys": {
+      "get": {
+        "tags": ["Dev/Debug"],
+        "summary": "List recent masked plaintext keys from file vault",
+        "parameters": [ { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } } ],
+        "responses": { "200": { "description": "Keys" } }
+      }
+    },
+
+    "/api/v1/admin/debug/plain-keys-sqlite": {
+      "get": {
+        "tags": ["Dev/Debug"],
+        "summary": "List recent masked keys from sqlite vault",
+        "parameters": [ { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } } ],
+        "responses": { "200": { "description": "Keys" } }
+      }
+    }
+  }
+}

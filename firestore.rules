@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Admin collections - only accessible via server-side (Functions)
+    match /customers/{document=**} {
+      allow read, write: if false; // Only server-side access
+    }
+    
+    match /apiKeys/{document=**} {
+      allow read, write: if false; // Only server-side access
+    }
+    
+    match /usageRecords/{document=**} {
+      allow read, write: if false; // Only server-side access
+    }
+    
+    match /adminUsers/{document=**} {
+      allow read, write: if false; // Only server-side access
+    }
+    
+    match /businessMetrics/{document=**} {
+      allow read, write: if false; // Only server-side access
+    }
+    
+    // Health check - allow read for monitoring
+    match /health/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
