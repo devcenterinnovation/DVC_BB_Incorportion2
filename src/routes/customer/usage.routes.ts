@@ -34,6 +34,48 @@ import { http } from '../../utils/error.util.js';
  * - GET /customer/usage - Get current customer's API usage statistics
  */
 export function registerUsageRoutes(router: Router) {
+  
+  // DEBUG: Test endpoint to manually insert usage record
+  router.post('/usage/test-insert', authenticateCustomerJWT, async (req: Request, res: Response) => {
+    try {
+      const jwt = (req as any).customerJwt;
+      
+      if (!jwt || !jwt.customerId) {
+        return http.unauthorized(res, 'NO_JWT', 'No JWT found');
+      }
+      
+      console.log('[TEST] Inserting test usage record for customerId:', jwt.customerId);
+      
+      const now = new Date();
+      const billingPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      
+      await database.recordUsage({
+        customerId: jwt.customerId,
+        keyId: 'test-key',
+        endpoint: '/test/endpoint',
+        method: 'POST',
+        statusCode: 200,
+        responseTimeMs: 100,
+        billingPeriod,
+        cost: 0
+      });
+      
+      console.log('[TEST] ✅ Test record inserted successfully!');
+      
+      // Now fetch and return
+      const usage = await database.getUsageStats(jwt.customerId);
+      console.log('[TEST] Usage after insert:', JSON.stringify(usage));
+      
+      return http.ok(res, { 
+        message: 'Test record inserted',
+        customerId: jwt.customerId,
+        usage 
+      }, req);
+    } catch (e: any) {
+      console.error('[TEST] ❌ Error:', e);
+      return http.serverError(res, 'TEST_FAILED', e.message);
+    }
+  });
   /**
    * GET /customer/usage
    * 
@@ -65,6 +107,12 @@ export function registerUsageRoutes(router: Router) {
       // Extract customer JWT payload (set by authenticateCustomerJWT middleware)
       const jwt = (req as any).customerJwt;
       
+      console.log('========================================');
+      console.log('[USAGE-API] GET /customer/usage called');
+      console.log('[USAGE-API] JWT payload:', jwt ? JSON.stringify(jwt) : 'undefined');
+      console.log('[USAGE-API] Customer ID from JWT:', jwt?.customerId);
+      console.log('========================================');
+      
       if (!jwt || !jwt.customerId) {
         return http.unauthorized(
           res, 
@@ -77,7 +125,10 @@ export function registerUsageRoutes(router: Router) {
       
       // FIXED: Retrieve usage data from database (not in-memory store)
       // The database contains the actual usage records tracked by usageLogger middleware
+      console.log('[USAGE-API] Fetching usage stats for customerId:', jwt.customerId);
       const usage = await database.getUsageStats(jwt.customerId);
+      console.log('[USAGE-API] Usage stats returned:', JSON.stringify(usage));
+      console.log('========================================');
       
       // Return usage statistics with proper structure for frontend
       return http.ok(res, { usage }, req);

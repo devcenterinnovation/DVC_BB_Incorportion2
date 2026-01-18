@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware.js';
 import { CustomerStore } from '../../services/customerPortal.store.js';
+import { CustomerService } from '../../services/customer.service.js';
 import { http } from '../../utils/error.util.js';
 
 /**
@@ -40,7 +41,7 @@ export function registerProfileRoutes(router: Router) {
    * 
    * Used by: Customer portal dashboard to display user info
    */
-  router.get('/me', authenticateCustomerJWT, (req: Request, res: Response) => {
+  router.get('/me', authenticateCustomerJWT, async (req: Request, res: Response) => {
     try {
       // Customer JWT payload is attached to request by authenticateCustomerJWT middleware
       const jwt = (req as any).customerJwt;
@@ -56,14 +57,34 @@ export function registerProfileRoutes(router: Router) {
         return http.unauthorized(res, 'CUSTOMER_NOT_FOUND', 'Customer account not found', undefined, req);
       }
       
+      // Fetch verification status from database
+      let verificationStatus = 'inactive';
+      try {
+        const dbCustomer = await CustomerService.getCustomerDetails(jwt.customerId);
+        // getCustomerDetails returns CustomerWithKeys which extends Customer
+        // So we access verificationStatus directly from dbCustomer, not dbCustomer.customer
+        if (dbCustomer) {
+          verificationStatus = dbCustomer.verificationStatus || 'inactive';
+          console.log('[Customer Profile] Fetched verification status from DB:', {
+            customerId: jwt.customerId,
+            email: dbCustomer.email,
+            verificationStatus,
+            fullCustomerObject: dbCustomer
+          });
+        }
+      } catch (e) {
+        console.error('[Customer Profile] Failed to fetch verification status:', e);
+      }
+      
       // Return customer profile (password hash excluded)
       return http.ok(res, {
         id: customer.id,
         email: customer.email,
         company: customer.company || null,
         phoneNumber: customer.phoneNumber || null,
-        plan: customer.plan || 'basic',
+        plan: customer.walletBalance || 'basic',
         status: customer.status || 'active',
+        verificationStatus,
         createdAt: customer.createdAt || new Date().toISOString(),
         lastLogin: customer.lastLogin || null
       }, req);
@@ -147,7 +168,7 @@ export function registerProfileRoutes(router: Router) {
         email: updated.email,
         company: updated.company || null,
         phoneNumber: updated.phoneNumber || null,
-        plan: updated.plan || 'basic',
+        plan: updated.walletBalance || 'basic',
         status: updated.status || 'active',
         createdAt: updated.createdAt || new Date().toISOString(),
         lastLogin: updated.lastLogin || null
@@ -157,3 +178,5 @@ export function registerProfileRoutes(router: Router) {
     }
   });
 }
+
+

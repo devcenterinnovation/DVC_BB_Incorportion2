@@ -13,7 +13,7 @@ import { savePlainApiKey } from '../utils/keyVault.js';
 export interface CreateCustomerRequest {
   email: string;
   company?: string;
-  plan: 'basic' | 'pro';
+  // plan removed - pay-per-use pricing model
   full_name?: string;
   nin_bvn?: string;
   phone_number?: string;
@@ -45,6 +45,10 @@ export interface CustomerWithKeys extends Customer {
 /**
  * Plan configurations
  */
+// Plans removed - pay-per-use pricing model
+// (left here as historical reference)
+/*
+/*
 export const PLANS = {
   basic: {
     price: 50, // USD per month
@@ -53,12 +57,13 @@ export const PLANS = {
     features: ["Business Registration", "Name Search"]
   },
   pro: {
-    price: 150, // USD per month  
+    price: 150, // USD per month
     requests: 5000,
     rateLimit: 30, // per minute
     features: ["All Basic", "Status Tracking", "Priority Support"]
   }
 } as const;
+*/
 
 export class CustomerService {
   /**
@@ -69,6 +74,7 @@ export class CustomerService {
     let migrated = 0;
     let skipped = 0;
     try {
+      await database.initialize();
       const customers = (CustomerStore as any).customers || [];
       for (const c of customers) {
         if (customerId && c.id !== customerId) continue;
@@ -79,7 +85,7 @@ export class CustomerService {
           skipped += (c.apiKeys?.length || 0);
           continue;
         }
-        const planCfg = PLANS[c.plan as keyof typeof PLANS] || PLANS.basic;
+        // Plan config removed - using wallet-based pricing
         for (const keyRecord of c.apiKeys || []) {
           // Check if this key hash already exists in DB
           const existing = await database.getApiKeyByHash(keyRecord.keyHash);
@@ -94,11 +100,9 @@ export class CustomerService {
             keyPrefix: 'ck_portal',
             name: keyRecord.name || 'Portal Key',
             permissions: ['business:read', 'business:write'],
-            plan: (dbCustomer.plan as any) || 'basic',
             status: keyRecord.status === 'active' ? 'active' : 'revoked',
             requestsUsed: 0,
-            requestsLimit: planCfg.requests,
-            rateLimitPerMin: planCfg.rateLimit,
+            rateLimitPerMin: 60,
             expiresAt: undefined
           };
           await database.createApiKey(apiKeyData);
@@ -121,16 +125,13 @@ export class CustomerService {
       throw new Error('Customer with this email already exists');
     }
 
-    // Validate plan
-    if (!PLANS[customerData.plan]) {
-      throw new Error('Invalid plan specified');
-    }
+    // Pay-per-use: no plan validation
 
     // Create customer with all fields including passwordHash
     const customer = await database.createCustomer({
       email: customerData.email,
       company: customerData.company,
-      plan: customerData.plan,
+      walletBalance: 1000000,
       status: 'active',
       passwordHash: customerData.passwordHash, // FIXED: Pass passwordHash to database
       full_name: customerData.full_name,
@@ -158,7 +159,7 @@ export class CustomerService {
     const keyPrefix = plainKey.substring(0, 10); // ck_ + first 8 chars
 
     // Get plan configuration
-    const planConfig = PLANS[customer.plan as keyof typeof PLANS];
+    // Plan config removed
 
     // Create API key data
     const apiKeyData: ApiKeyData = {
@@ -167,11 +168,11 @@ export class CustomerService {
       keyPrefix,
       name: request.name,
       permissions: request.permissions || ['business:read', 'business:write'],
-      plan: customer.plan,
+      // plan removed
       status: 'active',
       requestsUsed: 0,
-      requestsLimit: planConfig.requests,
-      rateLimitPerMin: planConfig.rateLimit,
+      // requestsLimit removed
+      rateLimitPerMin: 60,
       expiresAt: request.expiresAt
     };
 
@@ -265,10 +266,7 @@ export class CustomerService {
       throw new Error('Customer not found');
     }
 
-    // Validate plan if being updated
-    if (updates.plan && !PLANS[updates.plan as keyof typeof PLANS]) {
-      throw new Error('Invalid plan specified');
-    }
+    // Pay-per-use: no plan updates
 
     return await database.updateCustomer(customerId, updates);
   }
@@ -348,7 +346,7 @@ export class CustomerService {
             dbCustomer = await database.createCustomer({
               email: portalCustomer.email,
               company: portalCustomer.company,
-              plan: (portalCustomer.plan === 'pro' ? 'pro' : 'basic'),
+              walletBalance: 1000000,
               status: 'active'
             });
           }
@@ -356,18 +354,18 @@ export class CustomerService {
           // Ensure this key exists in DB (by hash). If not, create it now.
           let dbKey = await database.getApiKeyByHash(keyRecord.keyHash);
           if (!dbKey) {
-            const planCfg = PLANS[(dbCustomer.plan as keyof typeof PLANS)] || PLANS.basic;
+            // Plan config removed - using wallet-based pricing
             dbKey = await database.createApiKey({
               customerId: dbCustomer.id,
               keyHash: keyRecord.keyHash,
               keyPrefix: plainKey.substring(0, 10),
               name: keyRecord.name || 'Portal Key',
               permissions: ['business:read', 'business:write'],
-              plan: dbCustomer.plan,
+              // plan removed
               status: keyRecord.status === 'active' ? 'active' : 'revoked',
               requestsUsed: 0,
-              requestsLimit: planCfg.requests,
-              rateLimitPerMin: planCfg.rateLimit,
+              // requestsLimit removed
+              rateLimitPerMin: 60,
               expiresAt: undefined
             });
           }
@@ -406,18 +404,18 @@ export class CustomerService {
           const customer = await database.getCustomer(rec.customerId) || await database.getCustomerByEmail((rec as any).email || '');
           if (!customer) return null;
           const keyHash = await bcrypt.hash(rawToken, 12);
-          const planCfg = PLANS[customer.plan as keyof typeof PLANS] || PLANS.basic;
+          // Plan config removed - using wallet-based pricing
           const created = await database.createApiKey({
             customerId: customer.id,
             keyHash,
             keyPrefix: tokenPrefix,
             name: rec.name || 'Imported Key',
             permissions: ['business:read','business:write'],
-            plan: customer.plan,
+            // plan removed
             status: 'active',
             requestsUsed: 0,
-            requestsLimit: planCfg.requests,
-            rateLimitPerMin: planCfg.rateLimit,
+            // requestsLimit removed
+            rateLimitPerMin: 60,
           });
           return created;
         }
@@ -438,18 +436,18 @@ export class CustomerService {
               const customer = await database.getCustomer(obj.customerId) || await database.getCustomerByEmail(obj.email || '');
               if (!customer) return null;
               const keyHash = await bcrypt.hash(rawToken, 12);
-              const planCfg = PLANS[customer.plan as keyof typeof PLANS] || PLANS.basic;
+              // Plan config removed - using wallet-based pricing
               const created = await database.createApiKey({
                 customerId: customer.id,
                 keyHash,
                 keyPrefix: tokenPrefix,
                 name: obj.name || 'Imported Key',
                 permissions: ['business:read','business:write'],
-                plan: customer.plan,
+                // plan removed
                 status: 'active',
                 requestsUsed: 0,
-                requestsLimit: planCfg.requests,
-                rateLimitPerMin: planCfg.rateLimit,
+                // requestsLimit removed
+                rateLimitPerMin: 60,
               });
               return created;
             }
@@ -549,7 +547,8 @@ export class CustomerService {
       method,
       statusCode,
       responseTimeMs,
-      billingPeriod
+      billingPeriod,
+      cost: 0
     });
 
     // Update API key usage counter
@@ -569,7 +568,6 @@ export class CustomerService {
     reason?: string;
     usage: {
       requestsUsed: number;
-      requestsLimit: number;
       percentage: number;
     };
   }> {
@@ -578,17 +576,17 @@ export class CustomerService {
       return {
         allowed: false,
         reason: 'API key not found',
-        usage: { requestsUsed: 0, requestsLimit: 0, percentage: 0 }
+        usage: { requestsUsed: 0, percentage: 0 }
       };
     }
 
     const usage = {
       requestsUsed: apiKey.requestsUsed,
-      requestsLimit: apiKey.requestsLimit,
-      percentage: (apiKey.requestsUsed / apiKey.requestsLimit) * 100
+      percentage: 0
     };
 
-    if (apiKey.requestsUsed >= apiKey.requestsLimit) {
+    // Pay-per-use: request limits removed; wallet enforcement will be added later
+    if (false) {
       return {
         allowed: false,
         reason: 'Monthly usage limit exceeded',
@@ -632,3 +630,6 @@ export class CustomerService {
     };
   }
 }
+
+
+

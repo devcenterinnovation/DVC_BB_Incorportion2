@@ -4,6 +4,8 @@ import { registerDashboardRoutes } from './dashboard.routes.js';
 import { registerSystemRoutes } from './system.routes.js';
 import { registerMonitoringRoutes } from './monitoring.routes.js';
 import adminCustomersRoutes from './customers.routes.js';
+import { registerVerificationRoutes } from './verification.register.js';
+import { registerPricingRoutes } from './pricing.routes.js';
 
 /**
  * ===================================================================
@@ -47,7 +49,14 @@ import adminCustomersRoutes from './customers.routes.js';
  * ├── /metrics                 GET    - Business metrics
  * ├── /admins                  POST   - Create admin
  * ├── /audit/self              GET    - Admin audit log
- * └── /customers/...           *      - Customer management (10 routes)
+ * ├── /customers/...           *      - Customer management (10 routes)
+ * └── /pricing/...             *      - Service pricing management (6 routes)
+ *     ├── GET    /             - List all pricing
+ *     ├── GET    /:code        - Get specific service pricing
+ *     ├── POST   /             - Create new pricing
+ *     ├── PUT    /:code        - Update pricing
+ *     ├── DELETE /:code        - Delete pricing
+ *     └── POST   /seed         - Seed default pricing
  * ```
  */
 
@@ -58,6 +67,8 @@ registerAuthRoutes(adminRouter);
 registerDashboardRoutes(adminRouter);
 registerSystemRoutes(adminRouter);
 registerMonitoringRoutes(adminRouter);
+registerVerificationRoutes(adminRouter);
+registerPricingRoutes(adminRouter);  // Service pricing management
 
 // Mount customer management routes at /customers
 adminRouter.use('/customers', adminCustomersRoutes);

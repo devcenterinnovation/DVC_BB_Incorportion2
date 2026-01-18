@@ -21,6 +21,9 @@ import { healthService } from "./services/health.service.js";
 // Import timeout middleware
 import { apiTimeout } from "./middleware/timeout.middleware.js";
 
+// Import Paystack webhook
+import { registerPaystackWebhook } from "./routes/webhooks/paystack.webhook.js";
+
 // Create an Express application instance
 const app: Application = express();
 
@@ -53,6 +56,20 @@ app.use(requestContextMiddleware);
 
 // Global request timeout (60 seconds)
 app.use(apiTimeout);
+
+// --- Paystack Webhook (MUST be before general JSON parser) ---
+// Paystack requires raw body for signature verification
+app.use('/api/v1/webhooks/paystack', express.raw({ type: 'application/json' }), (req: Request, res: Response, next: NextFunction) => {
+  // Store raw body for signature verification, then parse JSON
+  (req as any).rawBody = req.body.toString();
+  try {
+    req.body = JSON.parse((req as any).rawBody);
+  } catch (e) {
+    // Let the webhook handler deal with parse errors
+  }
+  next();
+});
+registerPaystackWebhook(app as any);
 
 // Parse JSON data from request bodies with error handling
 app.use(express.json({ 
@@ -143,7 +160,7 @@ initializeAdminUser().catch(console.error);
 //   - /admin/* (admin dashboard, monitoring, system management)
 //   - /health, /docs (public utility endpoints)
 //
-app.use('/api/v1/business', usageLogger);
+// Apply usage logger to all routes (it will filter for customerId internally)
 app.use("/api/v1", routes);
 
 

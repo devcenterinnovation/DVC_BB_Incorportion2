@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt'
 
 export type CustomerStatus = 'active' | 'suspended'
-export type Plan = 'basic' | 'pro' | 'enterprise'
+// Plans removed - pay-per-use model
+// export type Plan = 'basic' | 'pro' | 'enterprise'
 
 export interface CustomerApiKey {
   id: string
@@ -16,9 +17,11 @@ export interface CustomerRecord {
   id: string
   email: string
   passwordHash: string
+  resetTokenHash?: string
+  resetTokenExpires?: string
   company?: string
   phoneNumber?: string
-  plan: Plan
+  walletBalance: number
   status: CustomerStatus
   createdAt: string
   lastLogin?: string
@@ -39,7 +42,7 @@ class InMemoryCustomerStore {
       passwordHash: hash,
       company: 'Customer Co',
       phoneNumber: '08012345678',
-      plan: 'basic',
+      walletBalance: 1000000,
       status: 'active',
       createdAt: new Date().toISOString(),
       apiKeys: [],
@@ -48,7 +51,7 @@ class InMemoryCustomerStore {
   }
 
   /** Create a new portal customer, enforcing email uniqueness. Password should be pre-hashed. */
-  create(email: string, passwordOrHash: string, company?: string, plan: Plan = 'basic', idOverride?: string, phoneNumber?: string, isHashed: boolean = false): CustomerRecord {
+  create(email: string, passwordOrHash: string, company?: string, walletBalance: number = 1000000, idOverride?: string, phoneNumber?: string, isHashed: boolean = false): CustomerRecord {
     const existing = this.findByEmail(email)
     if (existing) {
       throw new Error('EMAIL_EXISTS')
@@ -62,7 +65,7 @@ class InMemoryCustomerStore {
       passwordHash,
       company,
       phoneNumber,
-      plan,
+      walletBalance,
       status: 'active',
       createdAt: new Date().toISOString(),
       apiKeys: [],
@@ -135,3 +138,4 @@ class InMemoryCustomerStore {
 }
 
 export const CustomerStore = new InMemoryCustomerStore()
+

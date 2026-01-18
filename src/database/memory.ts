@@ -1,4 +1,4 @@
-import type { DatabaseInterface, CustomerData, Customer, ApiKeyData, ApiKey, UsageRecordData, UsageRecord, UsageStats, ListOptions, BusinessOverview, SystemMetrics } from './index.js'
+import type { DatabaseInterface, CustomerData, Customer, ApiKeyData, ApiKey, UsageRecordData, UsageRecord, UsageStats, ListOptions, BusinessOverview, SystemMetrics, QoreIDToken, Admin, AdminData, WalletTransaction, WalletTransactionData, WalletTransactionStatus, ServicePricing, ServicePricingData } from './index.js'
 import { promises as fs } from 'fs'
 import path from 'path'
 
@@ -14,6 +14,10 @@ export class MemoryDatabase implements DatabaseInterface {
   private customers = new Map<string, Customer>()
   private apiKeys = new Map<string, ApiKey>()
   private usage: UsageRecord[] = []
+  private qoreIdToken: QoreIDToken | null = null
+  private admins = new Map<string, Admin>()
+  private walletTransactions = new Map<string, WalletTransaction>()
+  private servicePricing = new Map<string, ServicePricing>()
 
   private async load() {
     try {
@@ -21,6 +25,9 @@ export class MemoryDatabase implements DatabaseInterface {
       const data = JSON.parse(raw)
       const customers: Customer[] = (data.customers || []).map((c: any) => ({
         ...c,
+        // Grandfather existing customers if field missing
+        verificationStatus: c.verificationStatus || 'inactive',
+        resetTokenExpires: c.resetTokenExpires ? new Date(c.resetTokenExpires) : undefined,
         createdAt: new Date(c.createdAt),
         updatedAt: new Date(c.updatedAt)
       }))
@@ -38,6 +45,47 @@ export class MemoryDatabase implements DatabaseInterface {
       this.customers = new Map(customers.map(c => [c.id, c]))
       this.apiKeys = new Map(apiKeys.map(k => [k.id, k]))
       this.usage = usage
+      
+      // Load QoreID token if exists
+      if (data.qoreIdToken) {
+        this.qoreIdToken = {
+          ...data.qoreIdToken,
+          expiresAt: new Date(data.qoreIdToken.expiresAt),
+          createdAt: new Date(data.qoreIdToken.createdAt),
+          updatedAt: new Date(data.qoreIdToken.updatedAt)
+        }
+      }
+
+      // Load admins if exists
+      if (data.admins) {
+        const admins: Admin[] = data.admins.map((a: any) => ({
+          ...a,
+          createdAt: new Date(a.createdAt),
+          updatedAt: new Date(a.updatedAt),
+          lastLogin: a.lastLogin ? new Date(a.lastLogin) : undefined
+        }))
+        this.admins = new Map(admins.map(a => [a.id, a]))
+      }
+
+      // Load wallet transactions if exists
+      if (data.walletTransactions) {
+        const transactions: WalletTransaction[] = data.walletTransactions.map((t: any) => ({
+          ...t,
+          createdAt: new Date(t.createdAt),
+          completedAt: t.completedAt ? new Date(t.completedAt) : undefined
+        }))
+        this.walletTransactions = new Map(transactions.map(t => [t.id, t]))
+      }
+
+      // Load service pricing if exists
+      if (data.servicePricing) {
+        const pricing: ServicePricing[] = data.servicePricing.map((p: any) => ({
+          ...p,
+          createdAt: new Date(p.createdAt),
+          updatedAt: new Date(p.updatedAt)
+        }))
+        this.servicePricing = new Map(pricing.map(p => [p.serviceCode, p]))
+      }
     } catch (e) {
       // no existing file - seed minimal
       const id = 'cust_001'
@@ -45,8 +93,9 @@ export class MemoryDatabase implements DatabaseInterface {
         id,
         email: 'customer@example.com',
         company: 'Customer Co',
-        plan: 'basic',
+        walletBalance: 1000000, // ₦10,000 starting balance (kobo)
         status: 'active',
+        verificationStatus: 'inactive',
         createdAt: now(),
         updatedAt: now(),
       } as Customer)
@@ -60,7 +109,11 @@ export class MemoryDatabase implements DatabaseInterface {
       const data = {
         customers: [...this.customers.values()],
         apiKeys: [...this.apiKeys.values()],
-        usage: this.usage
+        usage: this.usage,
+        qoreIdToken: this.qoreIdToken,
+        admins: [...this.admins.values()],
+        walletTransactions: [...this.walletTransactions.values()],
+        servicePricing: [...this.servicePricing.values()]
       }
       await fs.writeFile(DB_FILE, JSON.stringify(data, null, 2), 'utf8')
     } catch (e) {
@@ -77,7 +130,16 @@ export class MemoryDatabase implements DatabaseInterface {
 
   async createCustomer(customer: CustomerData): Promise<Customer> {
     const id = 'cust_' + Math.random().toString(36).slice(2,10)
-    const rec: Customer = { id, createdAt: now(), updatedAt: now(), ...customer }
+    const rec: Customer = {
+      id,
+      ...customer,  // Spread first
+      // Then set defaults for missing fields
+      verificationStatus: customer.verificationStatus || 'inactive',
+      walletBalance: customer.walletBalance ?? 1000000,  // Default ₦10,000 in kobo
+      status: customer.status || 'active',
+      createdAt: now(),
+      updatedAt: now(),
+    }
     this.customers.set(id, rec)
     await this.save()
     return rec
@@ -90,6 +152,13 @@ export class MemoryDatabase implements DatabaseInterface {
   async getCustomerByEmail(email: string): Promise<Customer | null> {
     for (const c of this.customers.values()) {
       if (c.email.toLowerCase() === email.toLowerCase()) return c
+    }
+    return null
+  }
+
+  async getCustomerByResetTokenHash(tokenHash: string): Promise<Customer | null> {
+    for (const c of this.customers.values()) {
+      if (c.resetTokenHash && c.resetTokenHash === tokenHash) return c
     }
     return null
   }
@@ -180,10 +249,225 @@ export class MemoryDatabase implements DatabaseInterface {
     const apiRequestsToday = this.usage.length
     const apiRequestsThisMonth = this.usage.length
     const errorRate = this.usage.length ? this.usage.filter(u => u.statusCode>=400).length / this.usage.length : 0
-    return { totalCustomers, activeCustomers, monthlyRevenue: 0, apiRequestsToday, apiRequestsThisMonth, errorRate, newSignupsThisMonth: 0 }
+    
+    // Calculate monthly revenue from wallet transactions
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const monthlyRevenue = [...this.walletTransactions.values()]
+      .filter(txn => 
+        txn.type === 'credit' && 
+        txn.status === 'completed' && 
+        txn.paymentMethod !== 'admin' &&
+        txn.createdAt >= monthStart
+      )
+      .reduce((sum, txn) => sum + txn.amount, 0)
+    
+    return { totalCustomers, activeCustomers, monthlyRevenue, apiRequestsToday, apiRequestsThisMonth, errorRate, newSignupsThisMonth: 0 }
   }
 
   async getSystemMetrics(): Promise<SystemMetrics> {
     return { uptime: process.uptime(), memoryUsage: process.memoryUsage(), activeConnections: 0, databaseHealth: true }
+  }
+
+  // QoreID Token operations
+  async getQoreIDToken(): Promise<QoreIDToken | null> {
+    return this.qoreIdToken
+  }
+
+  async createQoreIDToken(data: Omit<QoreIDToken, 'id'>): Promise<QoreIDToken> {
+    const id = 'qoreid_token_' + Math.random().toString(36).slice(2, 10)
+    const token: QoreIDToken = {
+      id,
+      ...data
+    }
+
+    this.qoreIdToken = token
+    await this.save()
+    return token
+  }
+
+  async updateQoreIDToken(data: Omit<QoreIDToken, 'id'>): Promise<QoreIDToken> {
+    if (!this.qoreIdToken) {
+      // If no token exists, create one
+      return await this.createQoreIDToken(data)
+    }
+
+    this.qoreIdToken = {
+      ...this.qoreIdToken,
+      ...data,
+      updatedAt: new Date()
+    }
+
+    await this.save()
+    return this.qoreIdToken
+  }
+
+  // Admin operations
+  async createAdmin(adminData: AdminData): Promise<Admin> {
+    const id = `admin_${Date.now().toString(36)}`
+    const admin: Admin = {
+      id,
+      ...adminData,
+      createdAt: now(),
+      updatedAt: now()
+    }
+    this.admins.set(id, admin)
+    await this.save()
+    return admin
+  }
+
+  async getAdmin(adminId: string): Promise<Admin | null> {
+    return this.admins.get(adminId) || null
+  }
+
+  async getAdminByEmail(email: string): Promise<Admin | null> {
+    for (const admin of this.admins.values()) {
+      if (admin.email === email) return admin
+    }
+    return null
+  }
+
+  async updateAdmin(adminId: string, updates: Partial<AdminData>): Promise<Admin> {
+    const admin = this.admins.get(adminId)
+    if (!admin) throw new Error('Admin not found')
+    
+    const updated: Admin = {
+      ...admin,
+      ...updates,
+      updatedAt: now()
+    }
+    this.admins.set(adminId, updated)
+    await this.save()
+    return updated
+  }
+
+  async listAdmins(): Promise<Admin[]> {
+    return Array.from(this.admins.values())
+  }
+
+  async deleteAdmin(adminId: string): Promise<void> {
+    // Prevent deleting the last super_admin
+    const superAdmins = Array.from(this.admins.values()).filter(
+      a => a.role === 'super_admin' && a.status === 'active'
+    )
+    const admin = this.admins.get(adminId)
+    if (admin?.role === 'super_admin' && superAdmins.length <= 1) {
+      throw new Error('Cannot delete the last super admin')
+    }
+    
+    this.admins.delete(adminId)
+    await this.save()
+  }
+
+  // Wallet Transaction operations
+  async createWalletTransaction(transactionData: WalletTransactionData): Promise<WalletTransaction> {
+    const id = 'txn_' + Math.random().toString(36).slice(2, 10)
+    const transaction: WalletTransaction = {
+      id,
+      ...transactionData,
+      createdAt: now(),
+      completedAt: transactionData.status === 'completed' ? now() : undefined
+    }
+    this.walletTransactions.set(id, transaction)
+    await this.save()
+    return transaction
+  }
+
+  async getWalletTransaction(transactionId: string): Promise<WalletTransaction | null> {
+    return this.walletTransactions.get(transactionId) || null
+  }
+
+  async getWalletTransactionByReference(reference: string): Promise<WalletTransaction | null> {
+    for (const txn of this.walletTransactions.values()) {
+      if (txn.reference === reference) return txn
+    }
+    return null
+  }
+
+  async listWalletTransactions(customerId: string, options: ListOptions = {}): Promise<{ transactions: WalletTransaction[]; total: number }> {
+    let transactions = Array.from(this.walletTransactions.values())
+      .filter(t => t.customerId === customerId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+    const total = transactions.length
+
+    // Apply pagination
+    if (options.offset) {
+      transactions = transactions.slice(options.offset)
+    }
+    if (options.limit) {
+      transactions = transactions.slice(0, options.limit)
+    }
+
+    return { transactions, total }
+  }
+
+  async getAllWalletTransactions(): Promise<WalletTransaction[]> {
+    return Array.from(this.walletTransactions.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+  }
+
+  async updateWalletTransactionStatus(transactionId: string, status: WalletTransactionStatus, completedAt?: Date): Promise<WalletTransaction> {
+    const transaction = this.walletTransactions.get(transactionId)
+    if (!transaction) {
+      throw new Error('Transaction not found')
+    }
+
+    const updated: WalletTransaction = {
+      ...transaction,
+      status,
+      completedAt: completedAt || (status === 'completed' ? now() : transaction.completedAt)
+    }
+    this.walletTransactions.set(transactionId, updated)
+    await this.save()
+    return updated
+  }
+
+  // Service Pricing operations
+  async createServicePricing(pricingData: ServicePricingData): Promise<ServicePricing> {
+    const id = 'price_' + Math.random().toString(36).slice(2, 10)
+    const pricing: ServicePricing = {
+      id,
+      ...pricingData,
+      createdAt: now(),
+      updatedAt: now()
+    }
+    this.servicePricing.set(pricingData.serviceCode, pricing)
+    await this.save()
+    return pricing
+  }
+
+  async getServicePricing(serviceCode: string): Promise<ServicePricing | null> {
+    return this.servicePricing.get(serviceCode) || null
+  }
+
+  async listServicePricing(activeOnly: boolean = false): Promise<ServicePricing[]> {
+    let pricing = Array.from(this.servicePricing.values())
+    if (activeOnly) {
+      pricing = pricing.filter(p => p.isActive)
+    }
+    return pricing.sort((a, b) => a.serviceCode.localeCompare(b.serviceCode))
+  }
+
+  async updateServicePricing(serviceCode: string, updates: Partial<ServicePricingData>): Promise<ServicePricing> {
+    const pricing = this.servicePricing.get(serviceCode)
+    if (!pricing) {
+      throw new Error('Service pricing not found')
+    }
+
+    const updated: ServicePricing = {
+      ...pricing,
+      ...updates,
+      serviceCode: pricing.serviceCode, // Prevent changing the key
+      updatedAt: now()
+    }
+    this.servicePricing.set(serviceCode, updated)
+    await this.save()
+    return updated
+  }
+
+  async deleteServicePricing(serviceCode: string): Promise<void> {
+    this.servicePricing.delete(serviceCode)
+    await this.save()
   }
 }

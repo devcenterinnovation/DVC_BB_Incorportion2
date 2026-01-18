@@ -68,7 +68,46 @@ export function registerDashboardRoutes(router: Router) {
     async (req: Request, res: Response) => {
       try {
         // Get real business overview data from CustomerService
-        const overview = await CustomerService.getBusinessMetrics();
+        const metrics = await CustomerService.getBusinessMetrics();
+        const businessOverview = await database.getBusinessOverview();
+        
+        // Get all customers to calculate suspended count
+        const { customers } = await database.listCustomers({});
+        const suspendedCustomers = customers.filter(c => c.status === 'suspended').length;
+        
+        // Calculate real revenue from wallet transactions
+        const allTransactions = await database.getAllWalletTransactions();
+        
+        // Calculate total revenue (all completed credit transactions)
+        const totalRevenue = allTransactions
+          .filter(txn => txn.type === 'credit' && txn.status === 'completed' && txn.paymentMethod !== 'admin')
+          .reduce((sum, txn) => sum + txn.amount, 0);
+        
+        // Calculate revenue this month (completed credit transactions from this month)
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const revenueThisMonth = allTransactions
+          .filter(txn => 
+            txn.type === 'credit' && 
+            txn.status === 'completed' && 
+            txn.paymentMethod !== 'admin' &&
+            new Date(txn.createdAt) >= monthStart
+          )
+          .reduce((sum, txn) => sum + txn.amount, 0);
+        
+        // Map the data to match frontend expectations
+        const overview = {
+          totalCustomers: metrics.totalCustomers,
+          activeCustomers: metrics.activeCustomers,
+          suspendedCustomers: suspendedCustomers,
+          totalApiKeys: metrics.totalApiKeys,
+          activeApiKeys: metrics.activeApiKeys,
+          totalApiCalls: metrics.totalUsageThisMonth,
+          apiCallsToday: businessOverview.apiRequestsToday,
+          apiCallsThisMonth: businessOverview.apiRequestsThisMonth,
+          revenue: totalRevenue, // Total revenue in kobo from all completed payments
+          revenueThisMonth: revenueThisMonth // Revenue this month in kobo
+        };
 
         return http.ok(res, {
           overview,
@@ -138,14 +177,27 @@ export function registerDashboardRoutes(router: Router) {
 
         // Aggregate usage data
         const callsByDayMap = new Map<string, number>();
-        const endpointsMap = new Map<string, number>();
-        const customersMap = new Map<string, number>();
+        const endpointsMap = new Map<string, { count: number; totalResponseTime: number }>();
+        const customersMap = new Map<string, { count: number; customer: any }>();
+
+        let totalCalls = 0;
+        let totalSuccessful = 0;
+        let totalResponseTime = 0;
 
         for (const c of customers) {
           const records = await database.getUsage(c.id, range);
-          customersMap.set(c.id, (customersMap.get(c.id) || 0) + records.length);
+          customersMap.set(c.id, { 
+            count: (customersMap.get(c.id)?.count || 0) + records.length,
+            customer: c
+          });
           
           for (const r of records) {
+            totalCalls++;
+            if (r.statusCode >= 200 && r.statusCode < 400) {
+              totalSuccessful++;
+            }
+            totalResponseTime += r.responseTimeMs;
+
             // Aggregate by day
             const d = new Date(r.timestamp);
             const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
@@ -153,8 +205,11 @@ export function registerDashboardRoutes(router: Router) {
               .slice(0, 10);
             callsByDayMap.set(day, (callsByDayMap.get(day) || 0) + 1);
             
-            // Aggregate by endpoint
-            endpointsMap.set(r.endpoint, (endpointsMap.get(r.endpoint) || 0) + 1);
+            // Aggregate by endpoint with response times
+            const existing = endpointsMap.get(r.endpoint) || { count: 0, totalResponseTime: 0 };
+            existing.count++;
+            existing.totalResponseTime += r.responseTimeMs;
+            endpointsMap.set(r.endpoint, existing);
           }
         }
 
@@ -163,23 +218,47 @@ export function registerDashboardRoutes(router: Router) {
           .map(([date, count]) => ({ date, count }))
           .sort((a, b) => a.date.localeCompare(b.date));
           
-        const endpointsByCount = [...endpointsMap.entries()]
-          .map(([path, count]) => ({ path, count }))
-          .sort((a, b) => b.count - a.count);
+        const topEndpoints = [...endpointsMap.entries()]
+          .map(([endpoint, data]) => ({ 
+            endpoint, 
+            count: data.count,
+            avgResponseTime: Math.round(data.totalResponseTime / data.count)
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10);
           
-        const customersByUsage = [...customersMap.entries()]
-          .map(([customerId, count]) => ({ customerId, count }))
-          .sort((a, b) => b.count - a.count);
+        const topCustomers = [...customersMap.entries()]
+          .map(([customerId, data]) => ({ 
+            customerId, 
+            email: data.customer.email,
+            company: data.customer.company,
+            calls: data.count 
+          }))
+          .sort((a, b) => b.calls - a.calls)
+          .slice(0, 10);
+
+        // Build the usage object matching frontend expectations
+        const usage = {
+          totalCalls,
+          callsToday: 0, // Would need date filtering
+          callsThisWeek: 0, // Would need date filtering
+          callsThisMonth: totalCalls,
+          avgResponseTime: totalCalls > 0 ? Math.round(totalResponseTime / totalCalls) : 0,
+          successRate: totalCalls > 0 ? totalSuccessful / totalCalls : 0,
+          topEndpoints,
+          topCustomers
+        };
 
         return http.ok(res, {
+          usage,
           totals: {
-            calls: customersByUsage.reduce((sum, x) => sum + x.count, 0),
+            calls: totalCalls,
             customers: customers.length,
             activeCustomers: customers.filter((c: any) => c.status === 'active').length,
           },
           callsByDay,
-          endpointsByCount,
-          customersByUsage,
+          endpointsByCount: topEndpoints.map(e => ({ path: e.endpoint, count: e.count })),
+          customersByUsage: topCustomers.map(c => ({ customerId: c.customerId, count: c.calls })),
           range,
         }, req);
         

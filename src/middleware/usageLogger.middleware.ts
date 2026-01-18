@@ -13,11 +13,24 @@ function normalizePath(path: string): string {
 export function usageLogger(req: Request, res: Response, next: NextFunction): void {
   const start = process.hrtime.bigint()
 
+  console.log('========================================')
+  console.log('[USAGE-LOGGER] Middleware called for:', req.method, req.path)
+  console.log('[USAGE-LOGGER] Authorization header:', req.headers.authorization?.substring(0, 30) + '...')
+  console.log('========================================')
+
   res.on('finish', async () => {
     try {
+      console.log('----------------------------------------')
+      console.log('[USAGE] Response finished for:', req.method, req.path)
+      console.log('[USAGE] Status code:', res.statusCode)
+      
       let cj = (req as any).customerJwt
       const customer = (req as any).customer
       const apiKey = (req as any).apiKey
+
+      console.log('[USAGE] req.customer:', customer ? JSON.stringify({ id: customer.id, email: customer.email }) : 'undefined')
+      console.log('[USAGE] req.apiKey:', apiKey ? JSON.stringify({ id: apiKey.id, name: apiKey.name }) : 'undefined')
+      console.log('[USAGE] req.customerJwt:', cj ? 'present' : 'undefined')
 
       // Fallback: decode Bearer JWT if present and middleware didn't populate
       if (!cj) {
@@ -28,10 +41,16 @@ export function usageLogger(req: Request, res: Response, next: NextFunction): vo
       }
 
       const customerId = cj?.customerId || customer?.id
-      if (!customerId) return
+      console.log('[USAGE] Final customerId:', customerId)
+      
+      if (!customerId) {
+        console.log('[USAGE] ❌ No customerId found, SKIPPING usage recording!')
+        console.log('----------------------------------------')
+        return
+      }
 
       const end = process.hrtime.bigint()
-      const responseTimeMs = Number(end - start) / 1_000_000
+      const responseTimeMs = Math.round(Number(end - start) / 1_000_000) // Round to integer for PostgreSQL
       const method = req.method
       const statusCode = res.statusCode
       const endpoint = normalizePath(req.path)
@@ -40,7 +59,7 @@ export function usageLogger(req: Request, res: Response, next: NextFunction): vo
       const now = new Date()
       const billingPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
 
-      await database.recordUsage({
+      const usageData = {
         customerId,
         keyId,
         endpoint,
@@ -48,21 +67,32 @@ export function usageLogger(req: Request, res: Response, next: NextFunction): vo
         statusCode,
         responseTimeMs,
         billingPeriod,
-      })
+        cost: 0
+      }
+      
+      console.log('[USAGE] 📝 Saving to database:', JSON.stringify(usageData, null, 2))
+      
+      await database.recordUsage(usageData)
+      
+      console.log('[USAGE] ✅ Successfully saved to database!')
+      console.log('----------------------------------------')
 
       // Increment API key usage counter (tracks cost/credits used)
       if (apiKey?.id) {
         try {
           const currentUsed = Number(apiKey?.requestsUsed || 0)
           await database.updateApiKey(apiKey.id, { requestsUsed: currentUsed + 1 })
+          console.log('[USAGE] ✅ API key usage counter updated')
         } catch (e) {
-          // non-fatal in dev
+          console.log('[USAGE] ⚠️ Failed to update API key counter:', e)
         }
       }
-    } catch {
-      // ignore logging errors in local
+    } catch (err) {
+      console.log('[USAGE] ❌ ERROR in usage logger:', err)
     }
   })
 
   next()
 }
+
+

@@ -3,7 +3,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { Router } from 'express';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
-import { PLANS } from '../services/customer.service.js';
+// Plans removed - pay-per-use model
+// import { PLANS } from '../services/customer.service.js';
 import {
   adminLogin,
   requireAdminAuth,
@@ -522,19 +523,17 @@ router.post(
 
       // Create DB key
       const keyHash = await bcrypt.hash(plainKey, 12);
-      const plan = customer.plan as any;
-      const planCfg = PLANS[plan] || PLANS.basic;
+      // Pay-per-use: plans removed
+      const planCfg = { rateLimit: 60 };
       const created = await database.createApiKey({
         customerId: customer.id,
         keyHash,
         keyPrefix,
         name: rec.name || 'Imported Key',
         permissions: ['business:read', 'business:write'],
-        plan,
         status: 'active',
         requestsUsed: 0,
-        requestsLimit: planCfg.requests,
-        rateLimitPerMin: planCfg.rateLimit,
+        rateLimitPerMin: 60, // Default rate limit
       });
 
       return http.ok(res, { imported: true, keyId: created.id, customerId: customer.id });
@@ -617,3 +616,6 @@ router.get('/audit/self', requireAdminAuth, async (req: ExpressRequest, res: Exp
 });
 
 export default router;
+
+
+

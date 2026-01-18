@@ -16,9 +16,13 @@ export const AdminAuditService = {
         statusCode,
         responseTimeMs,
         billingPeriod: currentBillingPeriod(),
+        cost: 0
       });
     } catch (e) {
       console.warn('[admin-audit] Failed to record admin action:', (e as Error).message);
     }
   }
 };
+
+
+

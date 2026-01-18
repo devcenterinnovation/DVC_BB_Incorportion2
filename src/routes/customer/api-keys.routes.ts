@@ -76,7 +76,7 @@ export function registerApiKeysRoutes(router: Router) {
         keyPrefix: key.keyPrefix || key.id.substring(0, 12),
         status: key.status || 'active',
         requestsUsed: key.requestsUsed || 0,
-        requestsLimit: key.requestsLimit || 0,
+        // requestsLimit removed - unlimited with wallet balance
         lastUsed: key.lastUsed || null,
         createdAt: key.createdAt || new Date().toISOString()
       }));
@@ -220,3 +220,4 @@ export function registerApiKeysRoutes(router: Router) {
     }
   });
 }
+

@@ -3,6 +3,8 @@ import { asyncHandler } from '../../middleware/error.middleware.js';
 import { http } from '../../utils/error.util.js';
 import { validateContentType, sanitizeInput, validateNameSimilaritySearch } from '../../middleware/validation.middleware.js';
 import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware.js';
+import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware.js';
+import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware.js';
 // usageLogger removed - applied at app level in app.ts
 import { cacApiService } from '../../services/cacApi.service.js';
 import type { NameSearchRequest } from '../../types/api.js';
@@ -13,8 +15,10 @@ import type { NameSearchRequest } from '../../types/api.js';
 export function registerNameSearchRoutes(router: Router) {
   router.post(
     '/business/name-search',
-    authenticateCustomer, // Customer API keys only
-    // usageLogger applied at app level, no need to duplicate here
+    authenticateCustomer, // Sets req.customer (MUST be first)
+    requireVerifiedBusiness, // Checks req.customer.verificationStatus (MUST be after auth)
+    checkWalletBalance,   // Check wallet balance (MUST be after auth, returns 402 if insufficient)
+    chargeWallet,         // Setup response interception to charge on success
     trackUsage,           // Billing & quota tracking for authenticated customers
     validateContentType,
     sanitizeInput,

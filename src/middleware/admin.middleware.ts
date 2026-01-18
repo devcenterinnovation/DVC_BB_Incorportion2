@@ -26,17 +26,11 @@ interface AdminJWTPayload {
   permissions: string[];
 }
 
-// Simple in-memory admin storage (will be moved to database later)
-// For MVP, we keep it simple with environment variables
-import { AdminConfigStore } from '../config/adminConfig.store.js';
+// Admin configuration (super admin seeded from environment variables)
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@yourcompany.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123!CHANGE_THIS';
 
-export const ADMIN_CONFIG = {
-  get email() { return AdminConfigStore.get().email; },
-  set email(v: string) { /* no-op: prefer AdminConfigStore methods */ },
-  get password() { return process.env.ADMIN_PASSWORD || 'admin123!CHANGE_THIS'; },
-  get passwordHash() { return AdminConfigStore.get().passwordHash; },
-  set passwordHash(v: string) { /* no-op: prefer AdminConfigStore methods */ }
-} as any;
+const DEFAULT_PERMISSIONS = ['view_all', 'manage_customers', 'manage_billing', 'manage_system'];
 
 // TODO(rovodev): move JWT secret & expiry to a single shared util; enforce standard claims (iss, aud)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-admin-jwt-key-change-in-production';
@@ -47,20 +41,25 @@ const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
  */
 export const initializeAdminUser = async (): Promise<void> => {
   try {
-    // Initialize database connection
     await database.initialize();
-    
-    // Hash admin password if not already done
-    if (!AdminConfigStore.get().passwordHash) {
-      await AdminConfigStore.setEmailAndPassword(ADMIN_CONFIG.email, ADMIN_CONFIG.password);
-      // Only log admin initialization when explicitly enabled with LOG_LEVEL
-      // In production with no LOG_LEVEL set, this will be silent
-      const logLevel = process.env.LOG_LEVEL?.toLowerCase();
-      if (logLevel === 'info' || logLevel === 'debug') {
-        console.log(`[ADMIN] User initialized: ${ADMIN_CONFIG.email}`);
-        console.log(`[ADMIN] Default password: ${ADMIN_CONFIG.password}`);
-        console.log('[ADMIN] WARNING: CHANGE THIS PASSWORD IMMEDIATELY IN PRODUCTION!');
-      }
+
+    const existing = await database.getAdminByEmail(ADMIN_EMAIL);
+    if (existing) return;
+
+    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+    await database.createAdmin({
+      email: ADMIN_EMAIL.toLowerCase(),
+      passwordHash,
+      role: 'super_admin',
+      permissions: DEFAULT_PERMISSIONS,
+      status: 'active'
+    });
+
+    const logLevel = process.env.LOG_LEVEL?.toLowerCase();
+    if (logLevel === 'info' || logLevel === 'debug') {
+      console.log(`[ADMIN] Super admin seeded: ${ADMIN_EMAIL}`);
+      console.log(`[ADMIN] Default password: ${ADMIN_PASSWORD}`);
+      console.log('[ADMIN] WARNING: CHANGE THIS PASSWORD IMMEDIATELY IN PRODUCTION!');
     }
   } catch (error) {
     console.error('❌ Admin initialization failed:', error);
@@ -100,25 +99,36 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Check admin credentials (simple email check for MVP)
-    if (email !== ADMIN_CONFIG.email) {
+    // Look up admin in database
+    const admin = await database.getAdminByEmail(email);
+    
+    if (!admin) {
       http.unauthorized(res, 'INVALID_CREDENTIALS', 'Invalid email or password', undefined, req);
       return;
     }
 
+    // Check if admin is active
+    if (admin.status !== 'active') {
+      http.unauthorized(res, 'ADMIN_SUSPENDED', 'Admin account is suspended', undefined, req);
+      return;
+    }
+
     // Verify password
-    const isPasswordValid = await bcrypt.compare(password, AdminConfigStore.get().passwordHash);
+    const isPasswordValid = await bcrypt.compare(password, admin.passwordHash);
     if (!isPasswordValid) {
       http.unauthorized(res, 'INVALID_CREDENTIALS', 'Invalid email or password', undefined, req);
       return;
     }
 
+    // Update last login
+    await database.updateAdmin(admin.id, { lastLogin: new Date() } as any);
+
     // Generate JWT token
     const tokenPayload: AdminJWTPayload = {
-      adminId: 'admin_001',
-      email: ADMIN_CONFIG.email,
-      role: 'super_admin',
-      permissions: ['view_all', 'manage_customers', 'manage_billing', 'manage_system']
+      adminId: admin.id,
+      email: admin.email,
+      role: admin.role,
+      permissions: admin.permissions
     };
 
     const token = signJwt(tokenPayload);
@@ -127,10 +137,11 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
     http.ok(res, {
       token,
       admin: {
-        id: 'admin_001',
-        email: ADMIN_CONFIG.email,
-        role: 'super_admin',
-        permissions: ['view_all', 'manage_customers', 'manage_billing', 'manage_system'],
+        id: admin.id,
+        email: admin.email,
+        role: admin.role,
+        permissions: admin.permissions,
+        fullName: admin.fullName,
         lastLogin: new Date()
       },
       message: 'Admin login successful'
@@ -160,9 +171,16 @@ export const requireAdminAuth = async (req: Request, res: Response, next: NextFu
     // Verify JWT token
     const decoded = verifyJwt<AdminJWTPayload>(token);
     
-    // Check admin user (simplified for MVP)
-    if (decoded.adminId !== 'admin_001') {
+    // Verify admin exists in database
+    const admin = await database.getAdmin(decoded.adminId);
+    if (!admin) {
       http.unauthorized(res, 'INVALID_ADMIN_TOKEN', 'Admin user not found or token invalid', undefined, req);
+      return;
+    }
+
+    // Check if admin is still active
+    if (admin.status !== 'active') {
+      http.unauthorized(res, 'ADMIN_SUSPENDED', 'Admin account has been suspended', undefined, req);
       return;
     }
 
@@ -240,16 +258,17 @@ export const getAdminProfile = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    const admin = await database.getAdmin(req.admin.id);
     res.json({
       success: true,
       data: {
         admin: {
-          id: req.admin.id || 'admin_001',
-          email: ADMIN_CONFIG.email,
-          role: req.admin.role || 'super_admin',
-          permissions: req.admin.permissions || ['view_all', 'manage_customers', 'manage_billing', 'manage_system'],
-          lastLogin: new Date(),
-          createdAt: new Date()
+          id: admin?.id || req.admin.id,
+          email: admin?.email || req.admin.email,
+          role: admin?.role || req.admin.role,
+          permissions: admin?.permissions || req.admin.permissions,
+          lastLogin: admin?.lastLogin || new Date(),
+          createdAt: admin?.createdAt || new Date()
         }
       }
     });
@@ -299,24 +318,21 @@ export const updateAdminProfile = async (req: Request, res: Response): Promise<v
         return;
       }
 
-      // Update email in config store
-      const currentHash = AdminConfigStore.get().passwordHash;
-      AdminConfigStore.setHashed(email, currentHash);
-      
-      console.log(`✅ Admin email updated: ${ADMIN_CONFIG.email} -> ${email}`);
+      const updated = await database.updateAdmin(req.admin.id, { email } as any);
+      console.log(`✅ Admin email updated: ${updated.email}`);
     }
 
-    // Return updated profile
+    const admin = await database.getAdmin(req.admin.id);
     res.json({
       success: true,
       data: {
         admin: {
-          id: req.admin.id || 'admin_001',
-          email: ADMIN_CONFIG.email,
-          role: req.admin.role || 'super_admin',
-          permissions: req.admin.permissions || ['view_all', 'manage_customers', 'manage_billing', 'manage_system'],
-          lastLogin: new Date(),
-          createdAt: new Date()
+          id: admin?.id || req.admin.id,
+          email: admin?.email || req.admin.email,
+          role: admin?.role || req.admin.role,
+          permissions: admin?.permissions || req.admin.permissions,
+          lastLogin: admin?.lastLogin || new Date(),
+          createdAt: admin?.createdAt || new Date()
         }
       },
       message: 'Admin profile updated successfully'
@@ -375,9 +391,19 @@ export const changeAdminPassword = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Verify current password against store
-    const currentHash = AdminConfigStore.get().passwordHash;
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, currentHash);
+    const admin = await database.getAdmin(req.admin.id);
+    if (!admin) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'ADMIN_NOT_FOUND',
+          message: 'Admin not found'
+        }
+      });
+      return;
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, admin.passwordHash);
     if (!isCurrentPasswordValid) {
       res.status(401).json({
         success: false,
@@ -389,9 +415,8 @@ export const changeAdminPassword = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Hash new password and update config
     const newPasswordHash = await bcrypt.hash(newPassword, 12);
-    AdminConfigStore.setHashed(ADMIN_CONFIG.email, newPasswordHash);
+    await database.updateAdmin(admin.id, { passwordHash: newPasswordHash, lastLogin: new Date() } as any);
 
     res.json({
       success: true,

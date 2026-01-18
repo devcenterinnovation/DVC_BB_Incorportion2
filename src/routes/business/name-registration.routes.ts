@@ -4,7 +4,9 @@ import { http } from '../../utils/error.util.js';
 import config from '../../config/index.js';
 import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware.js';
 import { validateBusinessRegistration, rateLimitBusinessRegistration } from '../../middleware/businessRegistration.middleware.js';
-import { trackUsage } from '../../middleware/customerAuth.middleware.js';
+import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware.js';
+import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware.js';
+import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware.js';
 import { documentsApiService } from '../../services/documentsApi.service.js';
 import type { BusinessRegistrationRequest } from '../../types/api.js';
 
@@ -68,7 +70,10 @@ export function registerNameRegistrationRoutes(router: Router) {
     // Middleware chain for commercial-grade validation and security
     validateContentType,       // Ensure JSON content-type
     sanitizeInput,             // Sanitize inputs to prevent injection
-    requireCustomerApiKey,     // Require customer API key auth
+    authenticateCustomer,      // Use standard customer auth (FIXED)
+    requireVerifiedBusiness,   // Verify customer is verified
+    checkWalletBalance,        // Check wallet balance (returns 402 if insufficient)
+    chargeWallet,              // Setup response interception to charge on success
     trackUsage,                // Track API usage for billing/quota
     rateLimitBusinessRegistration, // Dynamic rate limiting per plan
     validateBusinessRegistration,  // Comprehensive input validation (all required fields)

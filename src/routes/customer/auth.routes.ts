@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { CustomerStore } from '../../services/customerPortal.store.js';
 import { CustomerService } from '../../services/customer.service.js';
 import { signJwt } from '../../utils/jwt.util.js';
@@ -64,39 +65,21 @@ export function registerAuthRoutes(router: Router) {
    */
   router.post('/auth/signup', async (req: Request, res: Response) => {
     try {
-      const { email, password, company, plan, full_name, nin_bvn, phone_number, id_document } = req.body || {};
+      const { email, password, company, full_name } = req.body || {};
       
       // Validate required fields
       if (!email || !password) {
         return http.badRequest(res, 'MISSING_FIELDS', 'Email and password are required', undefined, req);
       }
       
-      if (!full_name || !nin_bvn || !phone_number) {
-        return http.badRequest(res, 'MISSING_REQUIRED_FIELDS', 'Full name, NIN/BVN, and phone number are required', undefined, req);
+      if (!full_name) {
+        return http.badRequest(res, 'MISSING_REQUIRED_FIELDS', 'Full name is required', undefined, req);
       }
 
       // Validate full name (must have at least two names)
       const nameParts = full_name.trim().split(/\s+/);
       if (nameParts.length < 2) {
         return http.badRequest(res, 'INVALID_NAME', 'Full name must include at least first and last name (separated by space)', undefined, req);
-      }
-
-      // Validate NIN/BVN (11 or 10 digits)
-      const ninBvnDigits = nin_bvn.replace(/\D/g, '');
-      if (ninBvnDigits.length !== 11 && ninBvnDigits.length !== 10) {
-        return http.badRequest(res, 'INVALID_NIN_BVN', 'NIN must be 11 digits or BVN must be 10 digits', undefined, req);
-      }
-
-      // Validate phone number (Nigerian format preferred)
-      const phonePattern = /^(\+234|0)?[789]\d{9}$/;
-      const cleanPhone = phone_number.replace(/\s+/g, '');
-      if (!phonePattern.test(cleanPhone)) {
-        return http.badRequest(res, 'INVALID_PHONE', 'Please provide a valid Nigerian phone number (e.g., 08012345678 or +2348012345678)', undefined, req);
-      }
-
-      // Validate ID document if provided (base64 string)
-      if (id_document && id_document.length < 100) {
-        return http.badRequest(res, 'INVALID_ID_DOCUMENT', 'ID document must be a valid base64 encoded image', undefined, req);
       }
 
       // Basic password policy
@@ -121,21 +104,17 @@ export function registerAuthRoutes(router: Router) {
       // FIXED: Hash password once for storage in both places
       const passwordHash = await bcrypt.hash(String(password), 10);
 
-      // Create persistent customer in main database with enhanced KYC fields AND password hash
+      // Create persistent customer in main database with basic info
       const dbCustomer = await CustomerService.createCustomer({
         email,
         company,
-        plan: plan === 'pro' ? 'pro' : 'basic',
         full_name,
-        nin_bvn: ninBvnDigits,
-        phone_number: cleanPhone,
-        id_document,
-        passwordHash // FIXED: Store password hash in persistent database
+        passwordHash
       });
 
-      // FIXED: Create portal account with same hashed password (not plain password)
+      // Create portal account with same hashed password (not plain password)
       // Pass isHashed=true to prevent double-hashing
-      const portalCustomer = CustomerStore.create(email, passwordHash, company, dbCustomer.plan as any, dbCustomer.id, cleanPhone, true);
+      const portalCustomer = CustomerStore.create(email, passwordHash, company, dbCustomer.walletBalance as any, dbCustomer.id, undefined, true);
 
       // Issue JWT for immediate portal session
       // This token allows customer to access portal features:
@@ -150,7 +129,7 @@ export function registerAuthRoutes(router: Router) {
           id: portalCustomer.id,
           email: portalCustomer.email,
           company: portalCustomer.company,
-          plan: portalCustomer.plan,
+          walletBalance: portalCustomer.walletBalance,
           status: portalCustomer.status
         }
       }, req);
@@ -213,6 +192,17 @@ export function registerAuthRoutes(router: Router) {
       // Try to find customer in portal store (contains password hash)
       let customer = CustomerStore.findByEmail(email);
       
+      // If customer exists in portal store but DB is missing password hash, persist it
+      if (customer && !(dbCustomer as any).passwordHash) {
+        try {
+          await (await import('../../database/index.js')).database.updateCustomer(dbCustomer.id, {
+            passwordHash: customer.passwordHash
+          });
+        } catch (updateError) {
+          console.warn('[Customer Login] Failed to persist password hash to database:', updateError);
+        }
+      }
+      
       // FIXED: If not found in portal store, try to restore from database
       if (!customer) {
         // This can happen after server restart - the in-memory store is empty
@@ -231,7 +221,7 @@ export function registerAuthRoutes(router: Router) {
                 passwordHash: storedPasswordHash,
                 company: dbCustomer.company,
                 phoneNumber: (dbCustomer as any).phone_number || (dbCustomer as any).phoneNumber,
-                plan: dbCustomer.plan as any,
+                walletBalance: dbCustomer.walletBalance,
                 status: dbCustomer.status as any,
                 createdAt: dbCustomer.createdAt.toISOString(),
                 apiKeys: [],
@@ -245,8 +235,14 @@ export function registerAuthRoutes(router: Router) {
             return http.unauthorized(res, 'INVALID_CREDENTIALS', 'Invalid email or password', undefined, req);
           }
         } else {
-          // No password hash in database - this shouldn't happen but handle gracefully
-          return http.unauthorized(res, 'INVALID_CREDENTIALS', 'Invalid email or password', undefined, req);
+          // No password hash in database - this can happen for legacy accounts
+          return http.unauthorized(
+            res,
+            'PASSWORD_NOT_SET',
+            'Account password not found. Please reset your password or re-register.',
+            undefined,
+            req
+          );
         }
       }
       
@@ -267,7 +263,7 @@ export function registerAuthRoutes(router: Router) {
         customer: {
           id: customer.id,
           email: customer.email,
-          plan: customer.plan,
+          walletBalance: customer.walletBalance,
           status: customer.status
         }
       }, req);
@@ -285,4 +281,113 @@ export function registerAuthRoutes(router: Router) {
       return http.serverError(res, 'LOGIN_FAILED', 'Failed to login', undefined, req);
     }
   });
+
+  /**
+   * POST /customer/auth/forgot-password
+   * 
+   * Generates a password reset token and (in the future) sends email.
+   * For now, returns a reset link for development/testing.
+   */
+  router.post('/auth/forgot-password', async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body || {};
+      if (!email) {
+        return http.badRequest(res, 'MISSING_FIELDS', 'Email is required', undefined, req);
+      }
+
+      const db = await import('../../database/index.js');
+      const customer = await db.database.getCustomerByEmail(email);
+
+      // Always return success to avoid user enumeration
+      if (!customer) {
+        return http.ok(res, {
+          message: 'If this email exists, a reset link will be sent.'
+        }, req);
+      }
+
+      // Generate token and hash
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      // Persist in database
+      await db.database.updateCustomer(customer.id, {
+        resetTokenHash: tokenHash,
+        resetTokenExpires: expiresAt
+      });
+
+      // Persist in portal store if present
+      const portalCustomer = CustomerStore.findByEmail(email);
+      if (portalCustomer) {
+        CustomerStore.update(portalCustomer.id, {
+          resetTokenHash: tokenHash,
+          resetTokenExpires: expiresAt.toISOString()
+        });
+      }
+
+      // Placeholder for email integration
+      const resetLink = `${process.env.APP_BASE_URL || 'http://localhost:3000'}/customer/reset-password?token=${rawToken}`;
+      console.log('[Password Reset] Reset link generated:', resetLink);
+
+      return http.ok(res, {
+        message: 'If this email exists, a reset link will be sent.',
+        // DEV ONLY: return link for testing; remove in production
+        resetLink
+      }, req);
+    } catch (e: any) {
+      return http.serverError(res, 'RESET_REQUEST_FAILED', 'Failed to initiate password reset', undefined, req);
+    }
+  });
+
+  /**
+   * POST /customer/auth/reset-password
+   * 
+   * Resets password using a valid token.
+   */
+  router.post('/auth/reset-password', async (req: Request, res: Response) => {
+    try {
+      const { token, password } = req.body || {};
+      if (!token || !password) {
+        return http.badRequest(res, 'MISSING_FIELDS', 'Token and new password are required', undefined, req);
+      }
+
+      const pwd = String(password);
+      const strongEnough = pwd.length >= 8 && /[A-Za-z]/.test(pwd) && /\d/.test(pwd);
+      if (!strongEnough) {
+        return http.badRequest(res, 'WEAK_PASSWORD', 'Password must be at least 8 characters and include letters and numbers', undefined, req);
+      }
+
+      const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+      const db = await import('../../database/index.js');
+      const customer = await db.database.getCustomerByResetTokenHash(tokenHash);
+
+      if (!customer || !customer.resetTokenExpires || customer.resetTokenExpires < new Date()) {
+        return http.unauthorized(res, 'INVALID_TOKEN', 'Reset token is invalid or expired', undefined, req);
+      }
+
+      const newPasswordHash = await bcrypt.hash(pwd, 10);
+      await db.database.updateCustomer(customer.id, {
+        passwordHash: newPasswordHash,
+        resetTokenHash: undefined,
+        resetTokenExpires: undefined
+      });
+
+      // Update portal store if present
+      const portalCustomer = CustomerStore.findByEmail(customer.email);
+      if (portalCustomer) {
+        CustomerStore.update(portalCustomer.id, {
+          passwordHash: newPasswordHash,
+          resetTokenHash: undefined,
+          resetTokenExpires: undefined
+        });
+      }
+
+      return http.ok(res, { message: 'Password reset successful. Please log in.' }, req);
+    } catch (e: any) {
+      return http.serverError(res, 'RESET_FAILED', 'Failed to reset password', undefined, req);
+    }
+  });
 }
+
+
+

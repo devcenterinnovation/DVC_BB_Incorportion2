@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt'
-import { FirestoreAdminStore } from './admin.firestore.store.js'
+import { database } from '../database/index.js'
 
 export type AdminRole = 'admin' | 'super_admin'
 
@@ -11,66 +11,90 @@ export interface AdminRecord {
   permissions: string[]
   createdAt: string
   lastLogin?: string
+  status?: 'active' | 'suspended'
 }
 
-class InMemoryAdminStore {
-  private admins = new Map<string, AdminRecord>()
-
-  constructor() {
-    // seed nothing here; env-based admin still supported via admin.middleware
-  }
-
-  findByEmail(email: string): AdminRecord | null {
-    for (const a of this.admins.values()) {
-      if (a.email.toLowerCase() === email.toLowerCase()) return a
+class DatabaseAdminStore {
+  async findByEmail(email: string): Promise<AdminRecord | null> {
+    const admin = await database.getAdminByEmail(email)
+    if (!admin) return null
+    return {
+      id: admin.id,
+      email: admin.email,
+      passwordHash: admin.passwordHash,
+      role: admin.role as AdminRole,
+      permissions: admin.permissions,
+      createdAt: admin.createdAt?.toISOString?.() || String(admin.createdAt),
+      lastLogin: admin.lastLogin ? new Date(admin.lastLogin).toISOString() : undefined,
+      status: admin.status
     }
-    return null
-  }
-
-  list(): AdminRecord[] {
-    return [...this.admins.values()]
-  }
-
-  create({ email, password, role = 'admin', permissions = [] as string[] }: { email: string; password: string; role?: AdminRole; permissions?: string[] }): AdminRecord {
-    if (!email || !password) throw new Error('MISSING_FIELDS')
-    if (this.findByEmail(email)) throw new Error('ADMIN_EXISTS')
-    const id = 'adm_' + Math.random().toString(36).slice(2, 10)
-    const passwordHash = bcrypt.hashSync(password, 10)
-    const rec: AdminRecord = {
-      id,
-      email,
-      passwordHash,
-      role,
-      permissions,
-      createdAt: new Date().toISOString(),
-    }
-    this.admins.set(id, rec)
-    return rec
-  }
-
-  updateLogin(email: string) {
-    const rec = this.findByEmail(email)
-    if (rec) {
-      rec.lastLogin = new Date().toISOString()
-      this.admins.set(rec.id, rec)
-    }
-  }
-
-  async updatePassword(adminId: string, newPassword: string): Promise<void> {
-    const rec = [...this.admins.values()].find(a => a.id === adminId)
-    if (!rec) throw new Error('ADMIN_NOT_FOUND')
-    rec.passwordHash = await bcrypt.hash(newPassword, 12)
-    rec.lastLogin = new Date().toISOString()
-    this.admins.set(rec.id, rec)
   }
 
   async findById(adminId: string): Promise<AdminRecord | null> {
-    for (const a of this.admins.values()) {
-      if (a.id === adminId) return a
+    const admin = await database.getAdmin(adminId)
+    if (!admin) return null
+    return {
+      id: admin.id,
+      email: admin.email,
+      passwordHash: admin.passwordHash,
+      role: admin.role as AdminRole,
+      permissions: admin.permissions,
+      createdAt: admin.createdAt?.toISOString?.() || String(admin.createdAt),
+      lastLogin: admin.lastLogin ? new Date(admin.lastLogin).toISOString() : undefined,
+      status: admin.status
     }
-    return null
+  }
+
+  async list(): Promise<AdminRecord[]> {
+    const admins = await database.listAdmins()
+    return admins.map(a => ({
+      id: a.id,
+      email: a.email,
+      passwordHash: a.passwordHash,
+      role: a.role as AdminRole,
+      permissions: a.permissions,
+      createdAt: a.createdAt?.toISOString?.() || String(a.createdAt),
+      lastLogin: a.lastLogin ? new Date(a.lastLogin).toISOString() : undefined,
+      status: a.status
+    }))
+  }
+
+  async create({ email, password, role = 'admin', permissions = [] as string[] }: { email: string; password: string; role?: AdminRole; permissions?: string[] }): Promise<AdminRecord> {
+    if (!email || !password) throw new Error('MISSING_FIELDS')
+    const existing = await this.findByEmail(email)
+    if (existing) throw new Error('ADMIN_EXISTS')
+
+    const passwordHash = await bcrypt.hash(password, 12)
+    const admin = await database.createAdmin({
+      email: email.toLowerCase(),
+      passwordHash,
+      role: role as any,
+      permissions,
+      status: 'active'
+    })
+
+    return {
+      id: admin.id,
+      email: admin.email,
+      passwordHash: admin.passwordHash,
+      role: admin.role as AdminRole,
+      permissions: admin.permissions,
+      createdAt: admin.createdAt?.toISOString?.() || String(admin.createdAt),
+      lastLogin: admin.lastLogin ? new Date(admin.lastLogin).toISOString() : undefined,
+      status: admin.status
+    }
+  }
+
+  async updateLogin(email: string): Promise<void> {
+    const admin = await this.findByEmail(email)
+    if (!admin) return
+    await database.updateAdmin(admin.id, { lastLogin: new Date() } as any)
+  }
+
+  async updatePassword(adminId: string, newPassword: string): Promise<void> {
+    const passwordHash = await bcrypt.hash(newPassword, 12)
+    await database.updateAdmin(adminId, { passwordHash, lastLogin: new Date() } as any)
   }
 }
 
-const useFirebase = process.env.USE_FIREBASE === 'true'
-export const AdminStore = useFirebase ? new FirestoreAdminStore() : new InMemoryAdminStore()
+export const AdminStore = new DatabaseAdminStore()

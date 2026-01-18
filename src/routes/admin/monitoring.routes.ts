@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../../middleware/error.middleware.js';
-import { authenticateApiKey, authorize } from '../../middleware/auth.middleware.js';
+import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware.js';
 import { healthService } from '../../services/health.service.js';
 import { http } from '../../utils/error.util.js';
 
@@ -17,8 +17,8 @@ import { http } from '../../utils/error.util.js';
  * - Audit logs access
  * 
  * All routes require:
- * - API key authentication (admin API key)
- * - 'admin' role authorization
+ * - Admin JWT authentication
+ * - 'view_all' permission
  * 
  * Routes:
  * - GET /monitoring/stats - API statistics and monitoring data
@@ -65,19 +65,24 @@ export function registerMonitoringRoutes(router: Router) {
    */
   router.get(
     '/monitoring/stats',
-    authenticateApiKey,
-    authorize(['admin']),
-    asyncHandler(async (req: Request, res: Response) => {
-      const [systemInfo, apiStats] = await Promise.all([
-        healthService.getSystemInfo(),
-        healthService.getApiStatistics(),
-      ]);
+    requireAdminAuth,
+    requireAdminPermission('view_all'),
+    async (req: Request, res: Response) => {
+      try {
+        const [systemInfo, apiStats] = await Promise.all([
+          healthService.getSystemInfo(),
+          healthService.getApiStatistics(),
+        ]);
 
-      return http.ok(res, {
-        system: systemInfo,
-        api: apiStats
-      }, req);
-    })
+        return http.ok(res, {
+          system: systemInfo,
+          api: apiStats
+        }, req);
+      } catch (error) {
+        console.error('Monitoring stats error:', error);
+        return http.serverError(res, 'INTERNAL_ERROR', 'Failed to get monitoring stats', undefined, req);
+      }
+    }
   );
 
   /**
@@ -93,8 +98,8 @@ export function registerMonitoringRoutes(router: Router) {
    * Note: This endpoint requires integration with the rate limit
    * middleware store to provide real-time data.
    * 
-   * Authentication: Admin API key required
-   * Authorization: 'admin' role
+   * Authentication: Admin JWT required
+   * Authorization: 'view_all' permission
    * 
    * Response:
    * {
@@ -109,16 +114,21 @@ export function registerMonitoringRoutes(router: Router) {
    */
   router.get(
     '/monitoring/rate-limit',
-    authenticateApiKey,
-    authorize(['admin']),
-    asyncHandler(async (req: Request, res: Response) => {
-      // This would integrate with the rate limit middleware
-      // For now, return a placeholder response
-      return http.ok(res, {
-        message: 'Rate limit monitoring endpoint - integrate with rateLimit middleware',
-        implementation: 'Requires integration with rateLimit middleware store'
-      }, req);
-    })
+    requireAdminAuth,
+    requireAdminPermission('view_all'),
+    async (req: Request, res: Response) => {
+      try {
+        // This would integrate with the rate limit middleware
+        // For now, return a placeholder response
+        return http.ok(res, {
+          message: 'Rate limit monitoring endpoint - integrate with rateLimit middleware',
+          implementation: 'Requires integration with rateLimit middleware store'
+        }, req);
+      } catch (error) {
+        console.error('Rate limit stats error:', error);
+        return http.serverError(res, 'INTERNAL_ERROR', 'Failed to get rate limit stats', undefined, req);
+      }
+    }
   );
 
   /**
@@ -139,15 +149,14 @@ export function registerMonitoringRoutes(router: Router) {
    * Note: This endpoint requires integration with the logging
    * middleware audit store to provide real-time data.
    * 
-   * Authentication: Admin API key required
-   * Authorization: 'admin' role
+   * Authentication: Admin JWT required
+   * Authorization: 'view_all' permission
    * 
    * Response:
    * {
    *   "success": true,
    *   "data": {
-   *     "message": "Audit logs endpoint",
-   *     "implementation": "Requires integration with logging middleware audit store",
+   *     "logs": [],
    *     "pagination": {
    *       "total": 0,
    *       "limit": 100,
@@ -161,24 +170,28 @@ export function registerMonitoringRoutes(router: Router) {
    */
   router.get(
     '/audit/logs',
-    authenticateApiKey,
-    authorize(['admin']),
-    asyncHandler(async (req: Request, res: Response) => {
-      const limit = parseInt(req.query.limit as string) || 100;
-      const offset = parseInt(req.query.offset as string) || 0;
+    requireAdminAuth,
+    requireAdminPermission('view_all'),
+    async (req: Request, res: Response) => {
+      try {
+        const limit = parseInt(req.query.limit as string) || 100;
+        const offset = parseInt(req.query.offset as string) || 0;
 
-      // This would integrate with the logging middleware
-      // For now, return a placeholder response
-      return http.ok(res, {
-        message: 'Audit logs endpoint - integrate with logging middleware',
-        implementation: 'Requires integration with logging middleware audit store',
-        pagination: {
-          total: 0,
-          limit,
-          offset,
-          hasMore: false,
-        }
-      }, req);
-    })
+        // This would integrate with the logging middleware
+        // For now, return empty array so frontend doesn't break
+        return http.ok(res, {
+          logs: [],
+          pagination: {
+            total: 0,
+            limit,
+            offset,
+            hasMore: false,
+          }
+        }, req);
+      } catch (error) {
+        console.error('Audit logs error:', error);
+        return http.serverError(res, 'INTERNAL_ERROR', 'Failed to get audit logs', undefined, req);
+      }
+    }
   );
 }

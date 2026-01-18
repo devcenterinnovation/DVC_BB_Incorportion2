@@ -3,6 +3,8 @@ import { asyncHandler } from '../../middleware/error.middleware.js';
 import { http } from '../../utils/error.util.js';
 import { validateCompanyRegistration } from '../../middleware/businessRegistration.middleware.js';
 import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware.js';
+import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware.js';
+import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware.js';
 // usageLogger removed - applied at app level in app.ts
 import { documentsApiService } from '../../services/documentsApi.service.js';
 
@@ -45,7 +47,9 @@ export function registerCompanyRegistrationRoutes(router: Router) {
     '/company-registration',
     validateCompanyRegistration,  // Validate all required company registration fields
     authenticateCustomer,         // Customer API key authentication
-    // usageLogger applied at app level, no need to duplicate here
+    requireVerifiedBusiness,      // Verify customer is verified
+    checkWalletBalance,           // Check wallet balance (returns 402 if insufficient)
+    chargeWallet,                 // Setup response interception to charge on success
     trackUsage,                   // Track for billing and quota
     asyncHandler(async (req: Request, res: Response) => {
       const startTime = Date.now();

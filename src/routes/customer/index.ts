@@ -16,12 +16,15 @@ import { Router } from 'express';
  * - profile.routes.ts: Customer profile management (GET /me)
  * - api-keys.routes.ts: API key generation and management
  * - usage.routes.ts: Usage tracking and statistics
+ * - wallet.routes.ts: Wallet balance, transactions, top-up via Paystack
  */
 
 import { registerAuthRoutes } from './auth.routes.js';
 import { registerProfileRoutes } from './profile.routes.js';
 import { registerApiKeysRoutes } from './api-keys.routes.js';
 import { registerUsageRoutes } from './usage.routes.js';
+import { registerVerificationRoutes } from './verification.register.js';
+import { registerWalletRoutes } from './wallet.routes.js';
 
 export const customerRouter = Router();
 
@@ -30,5 +33,7 @@ registerAuthRoutes(customerRouter);
 registerProfileRoutes(customerRouter);
 registerApiKeysRoutes(customerRouter);
 registerUsageRoutes(customerRouter);
+registerVerificationRoutes(customerRouter);
+registerWalletRoutes(customerRouter);  // Wallet balance, transactions, Paystack top-up
 
 export default customerRouter;

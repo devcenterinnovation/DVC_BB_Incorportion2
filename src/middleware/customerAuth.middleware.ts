@@ -20,15 +20,16 @@ declare global {
         id: string;
         email: string;
         company?: string;
-        plan: string;
+        walletBalance: number;
         status: string;
+        verificationStatus?: string;
+        verificationData?: any;
       };
       apiKey?: {
         id: string;
         name: string;
         permissions: string[];
         requestsUsed: number;
-        requestsLimit: number;
         rateLimitPerMin: number;
         status?: string;
       };
@@ -81,8 +82,10 @@ export const authenticateCustomer = async (req: Request, res: Response, next: Ne
           id: customer.id,
           email: customer.email,
           company: customer.company,
-          plan: customer.plan,
-          status: customer.status
+          walletBalance: customer.walletBalance,
+          status: customer.status,
+          verificationStatus: customer.verificationStatus,
+          verificationData: customer.verificationData
         };
 
         req.apiKey = {
@@ -90,7 +93,7 @@ export const authenticateCustomer = async (req: Request, res: Response, next: Ne
           name: apiKey.name,
           permissions: apiKey.permissions,
           requestsUsed: apiKey.requestsUsed,
-          requestsLimit: apiKey.requestsLimit,
+          // requestsLimit removed - controlled by wallet balance
           rateLimitPerMin: apiKey.rateLimitPerMin
         };
 
@@ -104,8 +107,9 @@ export const authenticateCustomer = async (req: Request, res: Response, next: Ne
         req.customer = {
           id: 'legacy_customer',
           email: 'legacy@system.com',
-          plan: 'basic',
-          status: 'active'
+          walletBalance: 1000000,
+          status: 'active',
+          verificationStatus: 'verified'
         };
         
         req.apiKey = {
@@ -113,7 +117,6 @@ export const authenticateCustomer = async (req: Request, res: Response, next: Ne
           name: 'Legacy Agent Key',
           permissions: ['business:read', 'business:write'],
           requestsUsed: 0,
-          requestsLimit: 1000,
           rateLimitPerMin: 10
         };
         
@@ -162,8 +165,10 @@ export const authenticateCustomer = async (req: Request, res: Response, next: Ne
           id: customer.id,
           email: customer.email,
           company: customer.company,
-          plan: customer.plan,
-          status: customer.status
+          walletBalance: customer.walletBalance,
+          status: customer.status,
+          verificationStatus: customer.verificationStatus,
+          verificationData: customer.verificationData
         };
 
         req.apiKey = {
@@ -171,7 +176,7 @@ export const authenticateCustomer = async (req: Request, res: Response, next: Ne
           name: apiKey.name,
           permissions: apiKey.permissions,
           requestsUsed: apiKey.requestsUsed,
-          requestsLimit: apiKey.requestsLimit,
+          // requestsLimit removed - controlled by wallet balance
           rateLimitPerMin: apiKey.rateLimitPerMin
         };
 
@@ -235,3 +240,5 @@ export const rateLimitByPlan = async (req: Request, res: Response, next: NextFun
     next(); // Don't block on rate limiting errors
   }
 };
+
+

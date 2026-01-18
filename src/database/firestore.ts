@@ -14,7 +14,15 @@ import {
   UsageStats,
   BusinessOverview,
   SystemMetrics,
-  ListOptions 
+  ListOptions,
+  QoreIDToken,
+  Admin,
+  AdminData,
+  WalletTransaction,
+  WalletTransactionData,
+  WalletTransactionStatus,
+  ServicePricing,
+  ServicePricingData
 } from './index.js';
 
 // Import Firestore (will be available in Firebase Functions environment)
@@ -58,6 +66,8 @@ export class FirestoreDatabase implements DatabaseInterface {
     
     const customer: Customer = {
       id: docRef.id,
+      // Default new customers to inactive unless explicitly set
+      verificationStatus: customerData.verificationStatus || 'inactive',
       ...customerData,
       createdAt: now,
       updatedAt: now
@@ -65,6 +75,7 @@ export class FirestoreDatabase implements DatabaseInterface {
 
     await docRef.set({
       ...customer,
+      resetTokenExpires: customer.resetTokenExpires ? customer.resetTokenExpires.toISOString() : null,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString()
     });
@@ -80,6 +91,9 @@ export class FirestoreDatabase implements DatabaseInterface {
     const data = doc.data();
     return {
       id: doc.id,
+      // Grandfather existing customers if missing
+      verificationStatus: data.verificationStatus || 'inactive',
+      resetTokenExpires: data.resetTokenExpires ? new Date(data.resetTokenExpires) : undefined,
       ...data,
       createdAt: new Date(data.createdAt),
       updatedAt: new Date(data.updatedAt)
@@ -98,6 +112,30 @@ export class FirestoreDatabase implements DatabaseInterface {
     const data = doc.data();
     return {
       id: doc.id,
+      // Grandfather existing customers if missing
+      verificationStatus: data.verificationStatus || 'inactive',
+      resetTokenExpires: data.resetTokenExpires ? new Date(data.resetTokenExpires) : undefined,
+      ...data,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt)
+    };
+  }
+
+  async getCustomerByResetTokenHash(tokenHash: string): Promise<Customer | null> {
+    const snapshot = await db.collection('customers')
+      .where('resetTokenHash', '==', tokenHash)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+    return {
+      id: doc.id,
+      // Grandfather existing customers if missing
+      verificationStatus: data.verificationStatus || 'inactive',
+      resetTokenExpires: data.resetTokenExpires ? new Date(data.resetTokenExpires) : undefined,
       ...data,
       createdAt: new Date(data.createdAt),
       updatedAt: new Date(data.updatedAt)
@@ -110,6 +148,7 @@ export class FirestoreDatabase implements DatabaseInterface {
     
     await docRef.update({
       ...updates,
+      resetTokenExpires: (updates as any).resetTokenExpires ? (updates as any).resetTokenExpires.toISOString() : null,
       updatedAt: now.toISOString()
     });
 
@@ -149,6 +188,9 @@ export class FirestoreDatabase implements DatabaseInterface {
       const data = doc.data();
       customers.push({
         id: doc.id,
+        // Grandfather existing customers if missing
+        verificationStatus: data.verificationStatus || 'inactive',
+        resetTokenExpires: data.resetTokenExpires ? new Date(data.resetTokenExpires) : undefined,
         ...data,
         createdAt: new Date(data.createdAt),
         updatedAt: new Date(data.updatedAt)
@@ -282,11 +324,17 @@ export class FirestoreDatabase implements DatabaseInterface {
     const docRef = db.collection('usageRecords').doc();
     const now = new Date();
     
-    await docRef.set({
+    const record = {
       id: docRef.id,
       ...usageData,
       timestamp: now.toISOString()
-    });
+    };
+    
+    console.log('[Firestore] Recording usage:', JSON.stringify(record, null, 2));
+    
+    await docRef.set(record);
+    
+    console.log('[Firestore] ✓ Usage record saved with ID:', docRef.id);
   }
 
   async getUsage(customerId: string, period?: string): Promise<UsageRecord[]> {
@@ -313,18 +361,25 @@ export class FirestoreDatabase implements DatabaseInterface {
   }
 
   async getUsageStats(customerId: string): Promise<UsageStats> {
+    console.log('[Firestore] Getting usage stats for customerId:', customerId);
+    
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const today = now.toISOString().split('T')[0];
+    
+    console.log('[Firestore] Query parameters:', { thisMonth, today });
 
     // Get this month's usage
     const monthlyUsage = await this.getUsage(customerId, thisMonth);
+    console.log('[Firestore] Monthly usage count:', monthlyUsage.length);
     
     // Get ALL usage for this customer
     const allUsageQuery = db.collection('usageRecords')
       .where('customerId', '==', customerId)
       .orderBy('timestamp', 'desc');
     const allUsageSnapshot = await allUsageQuery.get();
+    
+    console.log('[Firestore] Total usage records found:', allUsageSnapshot.size);
     
     const allUsage: UsageRecord[] = [];
     allUsageSnapshot.forEach(doc => {
@@ -335,6 +390,8 @@ export class FirestoreDatabase implements DatabaseInterface {
         timestamp: new Date(data.timestamp)
       });
     });
+    
+    console.log('[Firestore] All usage count:', allUsage.length);
 
     const todayUsage = monthlyUsage.filter(record => 
       record.timestamp.toISOString().startsWith(today)
@@ -418,8 +475,21 @@ export class FirestoreDatabase implements DatabaseInterface {
     });
     const errorRate = apiRequestsThisMonth > 0 ? errorRequests / apiRequestsThisMonth : 0;
 
-    // TODO: Calculate revenue from Stripe data
-    const monthlyRevenue = 0;
+    // Calculate monthly revenue from wallet transactions (completed credits this month)
+    const transactionsSnapshot = await db.collection('wallet_transactions')
+      .where('createdAt', '>=', startOfMonth)
+      .where('type', '==', 'credit')
+      .where('status', '==', 'completed')
+      .get();
+    
+    let monthlyRevenue = 0;
+    transactionsSnapshot.forEach(doc => {
+      const data = doc.data();
+      // Exclude admin credits (manual credits by admins should not count as revenue)
+      if (data.paymentMethod !== 'admin') {
+        monthlyRevenue += Number(data.amount || 0);
+      }
+    });
 
     return {
       totalCustomers,
@@ -441,5 +511,402 @@ export class FirestoreDatabase implements DatabaseInterface {
       activeConnections: 0, // Not applicable for Firestore
       databaseHealth
     };
+  }
+
+  // QoreID Token operations
+  async getQoreIDToken(): Promise<QoreIDToken | null> {
+    const docRef = db.collection('qoreidTokens').doc('current');
+    const snap = await docRef.get();
+
+    if (!snap.exists) return null;
+
+    const data = snap.data();
+    return {
+      id: 'current',
+      accessToken: data.accessToken,
+      tokenType: data.tokenType,
+      expiresAt: data.expiresAt?.toDate ? data.expiresAt.toDate() : new Date(data.expiresAt),
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+    };
+  }
+
+  async createQoreIDToken(data: Omit<QoreIDToken, 'id'>): Promise<QoreIDToken> {
+    const docRef = db.collection('qoreidTokens').doc('current');
+    await docRef.set({
+      accessToken: data.accessToken,
+      tokenType: data.tokenType,
+      expiresAt: data.expiresAt,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt
+    }, { merge: true });
+
+    return {
+      id: 'current',
+      ...data
+    };
+  }
+
+  async updateQoreIDToken(data: Omit<QoreIDToken, 'id'>): Promise<QoreIDToken> {
+    // Same behavior as create: upsert single record
+    return this.createQoreIDToken(data);
+  }
+
+  // Admin operations
+  async createAdmin(adminData: AdminData): Promise<Admin> {
+    const id = `admin_${Date.now().toString(36)}`;
+    const admin: Admin = {
+      id,
+      ...adminData,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    await db.collection('admins').doc(id).set({
+      ...adminData,
+      createdAt: admin.createdAt,
+      updatedAt: admin.updatedAt
+    });
+    
+    return admin;
+  }
+
+  async getAdmin(adminId: string): Promise<Admin | null> {
+    const doc = await db.collection('admins').doc(adminId).get();
+    if (!doc.exists) return null;
+    
+    const data = doc.data();
+    return {
+      id: doc.id,
+      email: data.email,
+      passwordHash: data.passwordHash,
+      fullName: data.fullName,
+      role: data.role,
+      permissions: data.permissions || [],
+      status: data.status,
+      lastLogin: data.lastLogin?.toDate ? data.lastLogin.toDate() : data.lastLogin,
+      createdBy: data.createdBy,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+    };
+  }
+
+  async getAdminByEmail(email: string): Promise<Admin | null> {
+    const snapshot = await db.collection('admins')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+    
+    if (snapshot.empty) return null;
+    
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+    return {
+      id: doc.id,
+      email: data.email,
+      passwordHash: data.passwordHash,
+      fullName: data.fullName,
+      role: data.role,
+      permissions: data.permissions || [],
+      status: data.status,
+      lastLogin: data.lastLogin?.toDate ? data.lastLogin.toDate() : data.lastLogin,
+      createdBy: data.createdBy,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+    };
+  }
+
+  async updateAdmin(adminId: string, updates: Partial<AdminData>): Promise<Admin> {
+    const docRef = db.collection('admins').doc(adminId);
+    const doc = await docRef.get();
+    
+    if (!doc.exists) throw new Error('Admin not found');
+    
+    await docRef.update({
+      ...updates,
+      updatedAt: new Date()
+    });
+    
+    const updated = await this.getAdmin(adminId);
+    if (!updated) throw new Error('Admin not found after update');
+    return updated;
+  }
+
+  async listAdmins(): Promise<Admin[]> {
+    const snapshot = await db.collection('admins').orderBy('createdAt', 'desc').get();
+    
+    return snapshot.docs.map((doc: any) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        email: data.email,
+        passwordHash: data.passwordHash,
+        fullName: data.fullName,
+        role: data.role,
+        permissions: data.permissions || [],
+        status: data.status,
+        lastLogin: data.lastLogin?.toDate ? data.lastLogin.toDate() : data.lastLogin,
+        createdBy: data.createdBy,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+      };
+    });
+  }
+
+  async deleteAdmin(adminId: string): Promise<void> {
+    // Prevent deleting the last super_admin
+    const superAdminsSnapshot = await db.collection('admins')
+      .where('role', '==', 'super_admin')
+      .where('status', '==', 'active')
+      .get();
+    
+    const admin = await this.getAdmin(adminId);
+    if (admin?.role === 'super_admin' && superAdminsSnapshot.size <= 1) {
+      throw new Error('Cannot delete the last super admin');
+    }
+    
+    await db.collection('admins').doc(adminId).delete();
+  }
+
+  // ==================== WALLET TRANSACTION OPERATIONS ====================
+
+  async createWalletTransaction(transactionData: WalletTransactionData): Promise<WalletTransaction> {
+    const id = `txn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const now = new Date();
+    
+    const transaction: WalletTransaction = {
+      id,
+      ...transactionData,
+      createdAt: now,
+      completedAt: transactionData.status === 'completed' ? now : undefined
+    };
+
+    await db.collection('wallet_transactions').doc(id).set({
+      ...transaction,
+      createdAt: now,
+      completedAt: transaction.completedAt || null
+    });
+
+    return transaction;
+  }
+
+  async getWalletTransaction(transactionId: string): Promise<WalletTransaction | null> {
+    const doc = await db.collection('wallet_transactions').doc(transactionId).get();
+    if (!doc.exists) return null;
+
+    const data = doc.data();
+    return {
+      id: doc.id,
+      customerId: data.customerId,
+      type: data.type,
+      amount: data.amount,
+      balanceBefore: data.balanceBefore,
+      balanceAfter: data.balanceAfter,
+      description: data.description,
+      reference: data.reference,
+      usageRecordId: data.usageRecordId,
+      paymentMethod: data.paymentMethod,
+      status: data.status,
+      metadata: data.metadata,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+      completedAt: data.completedAt?.toDate ? data.completedAt.toDate() : (data.completedAt ? new Date(data.completedAt) : undefined)
+    };
+  }
+
+  async getWalletTransactionByReference(reference: string): Promise<WalletTransaction | null> {
+    const snapshot = await db.collection('wallet_transactions')
+      .where('reference', '==', reference)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+    return {
+      id: doc.id,
+      customerId: data.customerId,
+      type: data.type,
+      amount: data.amount,
+      balanceBefore: data.balanceBefore,
+      balanceAfter: data.balanceAfter,
+      description: data.description,
+      reference: data.reference,
+      usageRecordId: data.usageRecordId,
+      paymentMethod: data.paymentMethod,
+      status: data.status,
+      metadata: data.metadata,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+      completedAt: data.completedAt?.toDate ? data.completedAt.toDate() : (data.completedAt ? new Date(data.completedAt) : undefined)
+    };
+  }
+
+  async listWalletTransactions(customerId: string, options: ListOptions = {}): Promise<{ transactions: WalletTransaction[]; total: number }> {
+    let query = db.collection('wallet_transactions')
+      .where('customerId', '==', customerId)
+      .orderBy('createdAt', 'desc');
+
+    // Get total count first
+    const countSnapshot = await db.collection('wallet_transactions')
+      .where('customerId', '==', customerId)
+      .get();
+    const total = countSnapshot.size;
+
+    // Apply pagination
+    if (options.offset) {
+      const offsetSnapshot = await query.limit(options.offset).get();
+      if (!offsetSnapshot.empty) {
+        const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
+        query = query.startAfter(lastDoc);
+      }
+    }
+    if (options.limit) {
+      query = query.limit(options.limit);
+    }
+
+    const snapshot = await query.get();
+    const transactions = snapshot.docs.map((doc: any) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        customerId: data.customerId,
+        type: data.type,
+        amount: data.amount,
+        balanceBefore: data.balanceBefore,
+        balanceAfter: data.balanceAfter,
+        description: data.description,
+        reference: data.reference,
+        usageRecordId: data.usageRecordId,
+        paymentMethod: data.paymentMethod,
+        status: data.status,
+        metadata: data.metadata,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+        completedAt: data.completedAt?.toDate ? data.completedAt.toDate() : (data.completedAt ? new Date(data.completedAt) : undefined)
+      };
+    });
+
+    return { transactions, total };
+  }
+
+  async getAllWalletTransactions(): Promise<WalletTransaction[]> {
+    const snapshot = await db.collection('wallet_transactions')
+      .orderBy('createdAt', 'desc')
+      .get();
+    
+    return snapshot.docs.map((doc: any) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        customerId: data.customerId,
+        type: data.type,
+        amountKobo: data.amountKobo,
+        amount: data.amount,
+        balanceBefore: data.balanceBefore,
+        balanceAfter: data.balanceAfter,
+        description: data.description,
+        reference: data.reference,
+        usageRecordId: data.usageRecordId,
+        paymentMethod: data.paymentMethod,
+        status: data.status,
+        metadata: data.metadata,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+        completedAt: data.completedAt?.toDate ? data.completedAt.toDate() : (data.completedAt ? new Date(data.completedAt) : undefined)
+      };
+    });
+  }
+
+  async updateWalletTransactionStatus(transactionId: string, status: WalletTransactionStatus, completedAt?: Date): Promise<WalletTransaction> {
+    const docRef = db.collection('wallet_transactions').doc(transactionId);
+    
+    await docRef.update({
+      status,
+      completedAt: completedAt || (status === 'completed' ? new Date() : null)
+    });
+
+    const updated = await this.getWalletTransaction(transactionId);
+    if (!updated) throw new Error('Transaction not found after update');
+    return updated;
+  }
+
+  // ==================== SERVICE PRICING OPERATIONS ====================
+
+  async createServicePricing(pricingData: ServicePricingData): Promise<ServicePricing> {
+    const id = `price_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const now = new Date();
+
+    const pricing: ServicePricing = {
+      id,
+      ...pricingData,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    // Use serviceCode as document ID for easy lookup
+    await db.collection('service_pricing').doc(pricingData.serviceCode).set({
+      ...pricing,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    return pricing;
+  }
+
+  async getServicePricing(serviceCode: string): Promise<ServicePricing | null> {
+    const doc = await db.collection('service_pricing').doc(serviceCode).get();
+    if (!doc.exists) return null;
+
+    const data = doc.data();
+    return {
+      id: data.id || doc.id,
+      serviceCode: data.serviceCode,
+      serviceName: data.serviceName,
+      priceKobo: data.priceKobo,
+      currency: data.currency,
+      description: data.description,
+      isActive: data.isActive,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+    };
+  }
+
+  async listServicePricing(activeOnly: boolean = false): Promise<ServicePricing[]> {
+    let query: any = db.collection('service_pricing');
+    
+    if (activeOnly) {
+      query = query.where('isActive', '==', true);
+    }
+
+    const snapshot = await query.get();
+    return snapshot.docs.map((doc: any) => {
+      const data = doc.data();
+      return {
+        id: data.id || doc.id,
+        serviceCode: data.serviceCode,
+        serviceName: data.serviceName,
+        priceKobo: data.priceKobo,
+        currency: data.currency,
+        description: data.description,
+        isActive: data.isActive,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+      };
+    }).sort((a: ServicePricing, b: ServicePricing) => a.serviceCode.localeCompare(b.serviceCode));
+  }
+
+  async updateServicePricing(serviceCode: string, updates: Partial<ServicePricingData>): Promise<ServicePricing> {
+    const docRef = db.collection('service_pricing').doc(serviceCode);
+    
+    await docRef.update({
+      ...updates,
+      updatedAt: new Date()
+    });
+
+    const updated = await this.getServicePricing(serviceCode);
+    if (!updated) throw new Error('Service pricing not found after update');
+    return updated;
+  }
+
+  async deleteServicePricing(serviceCode: string): Promise<void> {
+    await db.collection('service_pricing').doc(serviceCode).delete();
   }
 }
