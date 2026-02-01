@@ -35,7 +35,7 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
 }
 
 // Import comprehensive permission system
-import { DEFAULT_PERMISSIONS, AVAILABLE_PERMISSIONS } from '../routes/admin/admin.routes.js';
+import { DEFAULT_PERMISSIONS, AVAILABLE_PERMISSIONS } from '../types/admin.permissions.js';
 
 // TODO(rovodev): move JWT secret & expiry to a single shared util; enforce standard claims (iss, aud)
 const JWT_SECRET = process.env.JWT_SECRET

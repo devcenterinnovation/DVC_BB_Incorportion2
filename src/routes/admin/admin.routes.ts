@@ -13,81 +13,11 @@ import { http } from '../../utils/error.util.js';
 import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware.js';
 import { database } from '../../database/index.js';
 import { Admin, AdminData, AdminRole } from '../../database/index.js';
+import { AVAILABLE_PERMISSIONS, DEFAULT_PERMISSIONS } from '../../types/admin.permissions.js';
 
 const router = Router();
 
-/**
- * Available permissions in the system
- * Super Admin has all permissions by default
- */
-export const AVAILABLE_PERMISSIONS = {
-  // Customer Management
-  'view_customers': 'View customer list and details',
-  'create_customers': 'Create new customer accounts',
-  'edit_customers': 'Edit customer information',
-  'delete_customers': 'Delete customer accounts',
-  'manage_customer_wallet': 'Manage customer wallet balances',
-  
-  // Admin Management (Super Admin only)
-  'view_admins': 'View admin list and details',
-  'create_admins': 'Create new admin accounts',
-  'edit_admins': 'Edit admin information and permissions',
-  'delete_admins': 'Delete admin accounts',
-  'manage_admin_permissions': 'Grant/revoke admin permissions',
-  
-  // Business Operations
-  'view_verification_requests': 'View business verification requests',
-  'approve_verifications': 'Approve business verifications',
-  'reject_verifications': 'Reject business verifications',
-  
-  // Pricing Management
-  'view_pricing': 'View service pricing',
-  'edit_pricing': 'Edit service pricing',
-  
-  // Billing & Wallet
-  'view_wallet_transactions': 'View all wallet transactions',
-  'process_refunds': 'Process customer refunds',
-  
-  // System Management
-  'view_dashboard': 'View admin dashboard',
-  'view_system_metrics': 'View system performance metrics',
-  'manage_system': 'System administration tasks',
-  
-  // API Keys
-  'view_api_keys': 'View customer API keys',
-  'manage_api_keys': 'Create/revoke customer API keys',
-  
-  // Usage Analytics
-  'view_usage_analytics': 'View API usage analytics',
-  'export_reports': 'Export system reports'
-};
 
-/**
- * Default permissions by role
- */
-export const DEFAULT_PERMISSIONS = {
-  super_admin: Object.keys(AVAILABLE_PERMISSIONS), // All permissions
-  admin: [
-    'view_customers',
-    'create_customers',
-    'edit_customers',
-    'view_verification_requests', 
-    'approve_verifications',
-    'reject_verifications',
-    'view_pricing',
-    'view_wallet_transactions',
-    'view_dashboard',
-    'view_api_keys',
-    'view_usage_analytics'
-  ],
-  support: [
-    'view_customers',
-    'view_verification_requests',
-    'view_pricing',
-    'view_wallet_transactions',
-    'view_dashboard'
-  ]
-};
 
 /**
  * @route GET /admin
