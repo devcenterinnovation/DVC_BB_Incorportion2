@@ -9,7 +9,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Get the directory of this file to find .env relative to project root
-// In CommonJS, __dirname is automatically available as a global
+// In CommonJS, __dirname is a Node.js global variable that's automatically available
+// It contains the directory path of the current module
 const rootDir = path.resolve(__dirname, '../..');
 
 // Load environment variables from project root
