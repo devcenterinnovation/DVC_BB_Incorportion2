@@ -4,7 +4,7 @@
  * Implements TRUTH4.md flow:
  * - Customer authenticates to OUR API with API key (Token ck_...)
  * - Our API obtains QoreID Bearer token (internal)
- * - Our API calls QoreID BVN Basic endpoint
+ * - Our API calls QoreID BVN Basic endpoint......
  *
  * QoreID endpoint:
  *   GET/POST? (TRUTH4 specifies using body) -> we use POST
