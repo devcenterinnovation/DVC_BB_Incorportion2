@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware.js';
-import { healthService } from '../../services/health.service.js';
-import { http } from '../../utils/error.util.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware';
+import { healthService } from '../../services/health.service';
+import { http } from '../../utils/error.util';
 
 /**
  * ===================================================================

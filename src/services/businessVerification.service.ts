@@ -1,5 +1,5 @@
-import { database } from '../database/index.js';
-import { QoreIDTokenService } from './qoreid.token.service.js';
+import { database } from '../database/index';
+import { QoreIDTokenService } from './qoreid.token.service';
 import axios from 'axios';
 import fs from 'fs';
 

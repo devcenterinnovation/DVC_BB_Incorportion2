@@ -12,12 +12,12 @@
  */
 
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware.js';
-import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware.js';
-import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware.js';
-import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware.js';
-import { QoreIDTokenService } from '../../services/qoreid.token.service.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware';
+import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware';
+import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware';
+import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware';
+import { QoreIDTokenService } from '../../services/qoreid.token.service';
 
 const QOREID_BASE_URL = (process.env.QOREID_API_URL || 'https://api.qoreid.com').replace(/\/$/, '');
 

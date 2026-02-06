@@ -6,20 +6,20 @@ import { Router } from 'express';
 // During the transition, we mount both the new feature routes and the
 // remaining legacy routes to preserve 100% backward compatibility.
 
-import legacyBusinessRoutes from '../business.routes.js';
-import { registerNameSearchRoutes } from './name-search.routes.js';
-import { registerNameRegistrationRoutes } from './name-registration.routes.js';
-import { registerCompanyRegistrationRoutes } from './company-registration.routes.js';
-import { registerStatusRoutes } from './status.routes.js';
-import { registerUtilityRoutes } from './utility.routes.js';
-import { registerPassportFaceVerificationRoutes } from './face-verification.routes.js';
-import { registerBvnBasicRoutes } from './bvn-basic.routes.js';
-import { registerDriversLicenseVerificationRoutes } from './drivers-license-verification.routes.js';
-import { registerVotersCardVerificationRoutes } from './voters-card-verification.routes.js';
-import { registerPassportVerificationRoutes } from './passport-verification.routes.js';
-import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware.js';
-import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware.js';
-import { usageLogger } from '../../middleware/usageLogger.middleware.js';
+import legacyBusinessRoutes from '../business.routes';
+import { registerNameSearchRoutes } from './name-search.routes';
+import { registerNameRegistrationRoutes } from './name-registration.routes';
+import { registerCompanyRegistrationRoutes } from './company-registration.routes';
+import { registerStatusRoutes } from './status.routes';
+import { registerUtilityRoutes } from './utility.routes';
+import { registerPassportFaceVerificationRoutes } from './face-verification.routes';
+import { registerBvnBasicRoutes } from './bvn-basic.routes';
+import { registerDriversLicenseVerificationRoutes } from './drivers-license-verification.routes';
+import { registerVotersCardVerificationRoutes } from './voters-card-verification.routes';
+import { registerPassportVerificationRoutes } from './passport-verification.routes';
+import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware';
+import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware';
+import { usageLogger } from '../../middleware/usageLogger.middleware';
 
 export const businessRouter = Router();
 

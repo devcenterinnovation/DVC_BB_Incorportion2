@@ -4,7 +4,7 @@
  * Helper functions for other services to easily use QoreID token
  */
 
-import { QoreIDTokenService } from '../services/qoreid.token.service.js';
+import { QoreIDTokenService } from '../services/qoreid.token.service';
 
 export class QoreIDUtil {
   /**
@@ -85,7 +85,7 @@ export class QoreIDUtil {
 /**
  * Example usage in other services:
  * 
- * import { QoreIDUtil } from '../utils/qoreid.util.js';
+ * import { QoreIDUtil } from '../utils/qoreid.util';
  * 
  * // Make authenticated request to QoreID API
  * const response = await QoreIDUtil.makeQoreIDRequest('https://api.qoreid.com/v1/verify-phone', {

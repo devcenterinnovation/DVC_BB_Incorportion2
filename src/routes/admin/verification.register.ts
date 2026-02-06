@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import verificationRoutes from './verification.routes.js';
+import verificationRoutes from './verification.routes';
 
 /**
  * Register admin verification routes.

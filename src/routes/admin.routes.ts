@@ -4,7 +4,7 @@ import path from 'path';
 import { Router } from 'express';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 // Plans removed - pay-per-use model
-// import { PLANS } from '../services/customer.service.js';
+// import { PLANS } from '../services/customer.service';
 import {
   adminLogin,
   requireAdminAuth,
@@ -12,14 +12,14 @@ import {
   getAdminProfile,
   updateAdminProfile,
   changeAdminPassword
-} from '../middleware/admin.middleware.js';
-import { validateContentType, sanitizeInput } from '../middleware/validation.middleware.js';
-import { CustomerService } from '../services/customer.service.js';
-import { database } from '../database/index.js';
-import { http } from '../utils/error.util.js';
-import { CustomerStore } from '../services/customerPortal.store.js';
-import adminCustomersRoutes from './admin/customers.routes.js';
-import { AdminStore } from '../services/admin.store.js';
+} from '../middleware/admin.middleware';
+import { validateContentType, sanitizeInput } from '../middleware/validation.middleware';
+import { CustomerService } from '../services/customer.service';
+import { database } from '../database/index';
+import { http } from '../utils/error.util';
+import { CustomerStore } from '../services/customerPortal.store';
+import adminCustomersRoutes from './admin/customers.routes';
+import { AdminStore } from '../services/admin.store';
 
 /**
  * Check customer portal store for API key verification
@@ -412,7 +412,7 @@ router.get(
     try {
       const limit = Math.max(1, Math.min(500, parseInt(String(req.query.limit || '50'), 10) || 50));
       try {
-        const { getRecentPlainKeysSqlite } = await import('../utils/keyVaultSqlite.js');
+        const { getRecentPlainKeysSqlite } = await import('../utils/keyVaultSqlite');
         const items = await getRecentPlainKeysSqlite(limit);
         return http.ok(res, { items, count: items.length }, req);
       } catch (e) {
@@ -494,7 +494,7 @@ router.post(
       // Try sqlite vault first
       let rec: any = null;
       try {
-        const { getRecentPlainKeysSqlite } = await import('../utils/keyVaultSqlite.js');
+        const { getRecentPlainKeysSqlite } = await import('../utils/keyVaultSqlite');
         const items = await getRecentPlainKeysSqlite(1000);
         rec = items.find(i => i.plainKey === plainKey);
       } catch {}
@@ -547,7 +547,7 @@ router.post(
 /**
  * DEV ONLY: Reset admin password to match .env.vault
  */
-import { initializeAdminUser } from '../middleware/admin.middleware.js';
+import { initializeAdminUser } from '../middleware/admin.middleware';
 router.post('/dev/reset-password', async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     if (process.env.NODE_ENV === 'production') {
@@ -576,7 +576,7 @@ router.post('/dev/seed', async (req: ExpressRequest, res: ExpressResponse) => {
     if (!email || !password) {
       return http.badRequest(res, 'MISSING_FIELDS', 'email and password are required', undefined, req);
     }
-    const { AdminConfigStore } = await import('../config/adminConfig.store.js');
+    const { AdminConfigStore } = await import('../config/adminConfig.store');
     await AdminConfigStore.setEmailAndPassword(email, password);
     return http.ok(res, { seeded: true, email, ts: new Date().toISOString() }, req);
   } catch (e) {
@@ -591,7 +591,7 @@ router.post('/dev/seed', async (req: ExpressRequest, res: ExpressResponse) => {
 router.get('/audit/self', requireAdminAuth, async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const limit = Math.max(1, Math.min(200, parseInt(String(req.query.limit || '50'), 10) || 50));
-    const { database } = await import('../database/index.js');
+    const { database } = await import('../database/index');
     const now = new Date();
     const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const adminId = req.admin?.id || 'unknown_admin';

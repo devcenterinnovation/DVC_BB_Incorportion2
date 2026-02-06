@@ -4,7 +4,7 @@
  */
 
 import * as functions from 'firebase-functions';
-import app from './app.js';
+import app from './app';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 // Export the Express app as a Firebase Function

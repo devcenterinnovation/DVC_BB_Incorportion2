@@ -1,5 +1,5 @@
-import type { HealthCheckResponse, HealthStatus } from '../types/api.js';
-import { cacApiService } from './cacApi.service.js';
+import type { HealthCheckResponse, HealthStatus } from '../types/api';
+import { cacApiService } from './cacApi.service';
 
 export class HealthService {
   private startTime: number;
@@ -242,7 +242,7 @@ export class HealthService {
     }>;
   }> {
     try {
-      const { database } = await import('../database/index.js');
+      const { database } = await import('../database/index');
       
       // Get all customers to aggregate their usage
       const { customers } = await database.listCustomers({});

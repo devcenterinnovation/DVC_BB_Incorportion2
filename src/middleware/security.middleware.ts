@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { http } from '../utils/error.util.js';
+import { http } from '../utils/error.util';
 
 /**
  * Security headers middleware for banking-grade security

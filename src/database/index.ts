@@ -4,9 +4,9 @@
  * Switch providers by changing DATABASE_TYPE environment variable
  */
 
-import { FirestoreDatabase } from './firestore.js';
-import { PostgreSQLDatabase } from './postgresql.js';
-import { MemoryDatabase } from './memory.js';
+import { FirestoreDatabase } from './firestore';
+import { PostgreSQLDatabase } from './postgresql';
+import { MemoryDatabase } from './memory';
 
 export interface DatabaseInterface {
   // Customer operations

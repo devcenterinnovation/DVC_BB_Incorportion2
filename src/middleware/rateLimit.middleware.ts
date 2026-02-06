@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import { http } from '../utils/error.util.js';
-import { RateLimitError } from '../types/errors.js';
-import type { RateLimitInfo } from '../types/api.js';
+import { http } from '../utils/error.util';
+import { RateLimitError } from '../types/errors';
+import type { RateLimitInfo } from '../types/api';
 
 // Rate limiting configuration
 const WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'); // 15 minutes

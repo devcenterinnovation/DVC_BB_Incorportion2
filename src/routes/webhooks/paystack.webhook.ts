@@ -19,9 +19,9 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { PaystackService, PaystackWebhookEvent, PaystackServiceError } from '../../services/paystack.service.js';
-import { database } from '../../database/index.js';
-import { PricingService } from '../../services/pricing.service.js';
+import { PaystackService, PaystackWebhookEvent, PaystackServiceError } from '../../services/paystack.service';
+import { database } from '../../database/index';
+import { PricingService } from '../../services/pricing.service';
 
 const router = Router();
 

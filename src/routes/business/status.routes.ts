@@ -1,9 +1,9 @@
 import { Router, type Request, type Response } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { http } from '../../utils/error.util.js';
-import { authenticateCustomer } from '../../middleware/customerAuth.middleware.js';
-import { documentsApiService } from '../../services/documentsApi.service.js';
-import { healthService } from '../../services/health.service.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { http } from '../../utils/error.util';
+import { authenticateCustomer } from '../../middleware/customerAuth.middleware';
+import { documentsApiService } from '../../services/documentsApi.service';
+import { healthService } from '../../services/health.service';
 
 /**
  * ===================================================================

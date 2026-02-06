@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type AxiosResponse, AxiosError } from 'axios';
-import { ExternalApiError, TimeoutError } from '../types/errors.js';
-import type { NameSearchRequest, NameSearchResponse, RequestContext } from '../types/api.js';
+import { ExternalApiError, TimeoutError } from '../types/errors';
+import type { NameSearchRequest, NameSearchResponse, RequestContext } from '../types/api';
 
 // CAC.gov.ng API service - No authentication required
 export class CacApiService {

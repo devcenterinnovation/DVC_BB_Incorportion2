@@ -14,9 +14,9 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { WalletService, InsufficientBalanceError } from '../services/wallet.service.js';
-import { PricingService } from '../services/pricing.service.js';
-import { http } from '../utils/error.util.js';
+import { WalletService, InsufficientBalanceError } from '../services/wallet.service';
+import { PricingService } from '../services/pricing.service';
+import { http } from '../utils/error.util';
 
 // Extend Express Request to include wallet context
 declare global {

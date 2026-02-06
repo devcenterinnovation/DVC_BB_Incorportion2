@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
-import { signJwt, verifyJwt } from '../utils/jwt.util.js';
-import { http } from '../utils/error.util.js';
-import { database } from '../database/index.js';
+import { signJwt, verifyJwt } from '../utils/jwt.util';
+import { http } from '../utils/error.util';
+import { database } from '../database/index';
 
 /**
  * Admin Authentication Middleware
@@ -35,7 +35,7 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
 }
 
 // Import comprehensive permission system
-import { DEFAULT_PERMISSIONS, AVAILABLE_PERMISSIONS } from '../types/admin.permissions.js';
+import { DEFAULT_PERMISSIONS, AVAILABLE_PERMISSIONS } from '../types/admin.permissions';
 
 // TODO(rovodev): move JWT secret & expiry to a single shared util; enforce standard claims (iss, aud)
 const JWT_SECRET = process.env.JWT_SECRET

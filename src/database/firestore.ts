@@ -24,7 +24,7 @@ import {
   WalletTransactionStatus,
   ServicePricing,
   ServicePricingData
-} from './index.js';
+} from './index';
 
 // Import Firestore (will be available in Firebase Functions environment)
 let db: any;
@@ -37,7 +37,7 @@ export class FirestoreDatabase implements DatabaseInterface {
 
     try {
       // Use the centralized Firebase configuration
-      const { initializeFirebaseAdmin } = await import('../config/firebase.js');
+      const { initializeFirebaseAdmin } = await import('../config/firebase');
       const admin = await initializeFirebaseAdmin();
       
       db = admin.firestore();

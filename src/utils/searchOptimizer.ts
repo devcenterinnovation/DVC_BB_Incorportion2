@@ -1,5 +1,5 @@
 // Search optimization utilities - use the existing SimilarityResult type
-import type { SimilarityResult } from '../types/api.js';
+import type { SimilarityResult } from '../types/api';
 
 export interface SearchResult extends SimilarityResult {
   // Extended properties for CAC API results

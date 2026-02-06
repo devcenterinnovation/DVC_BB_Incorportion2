@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware.js';
-import { CustomerService } from '../../services/customer.service.js';
-import { database } from '../../database/index.js';
-import { http } from '../../utils/error.util.js';
+import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware';
+import { CustomerService } from '../../services/customer.service';
+import { database } from '../../database/index';
+import { http } from '../../utils/error.util';
 
 /**
  * ===================================================================

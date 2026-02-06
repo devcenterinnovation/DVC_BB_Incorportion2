@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware.js';
-import { http } from '../../utils/error.util.js';
-import { database } from '../../database/index.js';
-import { BusinessVerificationService } from '../../services/businessVerification.service.js';
+import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware';
+import { http } from '../../utils/error.util';
+import { database } from '../../database/index';
+import { BusinessVerificationService } from '../../services/businessVerification.service';
 
 const router = Router();
 

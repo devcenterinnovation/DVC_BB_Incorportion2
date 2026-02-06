@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
-import { verifyJwt } from '../utils/jwt.util.js'
-import { http } from '../utils/error.util.js'
+import { verifyJwt } from '../utils/jwt.util'
+import { http } from '../utils/error.util'
 
 export interface CustomerJwtPayload {
   customerId: string

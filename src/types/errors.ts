@@ -1,4 +1,4 @@
-import { HttpStatus } from './index.js';
+import { HttpStatus } from './index';
 
 // Base error class for the application
 export class AppError extends Error {

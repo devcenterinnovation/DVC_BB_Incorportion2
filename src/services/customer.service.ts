@@ -5,10 +5,10 @@
 
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { database } from '../database/index.js';
-import type { Customer, CustomerData, ApiKey, ApiKeyData } from '../database/index.js';
-import { CustomerStore } from './customerPortal.store.js';
-import { savePlainApiKey } from '../utils/keyVault.js';
+import { database } from '../database/index';
+import type { Customer, CustomerData, ApiKey, ApiKeyData } from '../database/index';
+import { CustomerStore } from './customerPortal.store';
+import { savePlainApiKey } from '../utils/keyVault';
 
 export interface CreateCustomerRequest {
   email: string;
@@ -201,7 +201,7 @@ export class CustomerService {
     // Optionally persist to sqlite vault if enabled (DEV ONLY)
     if (process.env.SAVE_PLAIN_KEYS_SQLITE === '1' || process.env.SAVE_PLAIN_KEYS_SQLITE === 'true') {
       try {
-        const { savePlainApiKeySqlite } = await import('../utils/keyVaultSqlite.js');
+        const { savePlainApiKeySqlite } = await import('../utils/keyVaultSqlite');
         await savePlainApiKeySqlite({
           customerId: request.customerId,
           keyId: apiKey.id,
@@ -411,7 +411,7 @@ export class CustomerService {
 
       // Try sqlite vault first
       try {
-        const { getRecentPlainKeysSqlite } = await import('../utils/keyVaultSqlite.js');
+        const { getRecentPlainKeysSqlite } = await import('../utils/keyVaultSqlite');
         const items = await getRecentPlainKeysSqlite(1000);
         const rec = items.find(i => i.plainKey === rawToken);
         if (rec) {

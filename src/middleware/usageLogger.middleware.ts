@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
-import { database } from '../database/index.js'
-import { verifyJwt } from '../utils/jwt.util.js'
+import { database } from '../database/index'
+import { verifyJwt } from '../utils/jwt.util'
 
 function normalizePath(path: string): string {
   return path

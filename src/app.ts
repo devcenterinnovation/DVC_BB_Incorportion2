@@ -1,28 +1,28 @@
 // Load and validate configuration FIRST
-import config from './config/index.js';
+import config from './config/index';
 
 import express from "express";
 import type { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
-import routes from "./routes/index.js";
+import routes from './routes/index';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { initializeAdminUser } from "./middleware/admin.middleware.js";
+import { initializeAdminUser } from './middleware/admin.middleware';
 
 // Import enterprise middleware
-import { requestContextMiddleware, responseLoggingMiddleware } from "./middleware/logging.middleware.js";
-import { securityHeaders, corsConfig, enforceHTTPS } from "./middleware/security.middleware.js";
-import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js";
-import { usageLogger } from './middleware/usageLogger.middleware.js';
+import { requestContextMiddleware, responseLoggingMiddleware } from './middleware/logging.middleware';
+import { securityHeaders, corsConfig, enforceHTTPS } from './middleware/security.middleware';
+import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import { usageLogger } from './middleware/usageLogger.middleware';
 
 // Import monitoring and health
-import { healthService } from "./services/health.service.js";
+import { healthService } from './services/health.service';
 
 // Import timeout middleware
-import { apiTimeout } from "./middleware/timeout.middleware.js";
+import { apiTimeout } from './middleware/timeout.middleware';
 
 // Import Paystack webhook
-import { registerPaystackWebhook } from "./routes/webhooks/paystack.webhook.js";
+import { registerPaystackWebhook } from './routes/webhooks/paystack.webhook';
 
 // Create an Express application instance
 const app: Application = express();
@@ -177,7 +177,7 @@ app.use("/api/v1", routes);
 
 
 // --- Boot-time migration: sync any portal keys into DB for admin visibility & stable auth ---
-import { CustomerService } from './services/customer.service.js';
+import { CustomerService } from './services/customer.service';
 (async () => {
   try {
     const result = await CustomerService.syncPortalKeysToDatabase();

@@ -20,10 +20,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware.js';
-import { PricingService } from '../../services/pricing.service.js';
-import { http } from '../../utils/error.util.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware';
+import { PricingService } from '../../services/pricing.service';
+import { http } from '../../utils/error.util';
 
 const router = Router();
 

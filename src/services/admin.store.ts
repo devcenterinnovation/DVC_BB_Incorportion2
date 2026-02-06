@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt'
-import { database } from '../database/index.js'
+import { database } from '../database/index'
 
 export type AdminRole = 'admin' | 'super_admin'
 

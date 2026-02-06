@@ -11,14 +11,14 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware.js';
-import { burstProtection } from '../../middleware/rateLimit.middleware.js';
-import { WalletService } from '../../services/wallet.service.js';
-import { PaystackService, PaystackServiceError } from '../../services/paystack.service.js';
-import { PricingService } from '../../services/pricing.service.js';
-import { database } from '../../database/index.js';
-import { http } from '../../utils/error.util.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware';
+import { burstProtection } from '../../middleware/rateLimit.middleware';
+import { WalletService } from '../../services/wallet.service';
+import { PaystackService, PaystackServiceError } from '../../services/paystack.service';
+import { PricingService } from '../../services/pricing.service';
+import { database } from '../../database/index';
+import { http } from '../../utils/error.util';
 
 const router = Router();
 

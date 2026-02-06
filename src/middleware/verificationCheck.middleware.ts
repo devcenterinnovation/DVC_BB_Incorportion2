@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { http } from '../utils/error.util.js';
+import { http } from '../utils/error.util';
 
 /**
  * Strict verification enforcement:

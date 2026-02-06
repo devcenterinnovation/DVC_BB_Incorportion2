@@ -1,14 +1,14 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { http } from '../../utils/error.util.js';
-import config from '../../config/index.js';
-import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware.js';
-import { validateBusinessRegistration, rateLimitBusinessRegistration } from '../../middleware/businessRegistration.middleware.js';
-import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware.js';
-import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware.js';
-import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware.js';
-import { documentsApiService } from '../../services/documentsApi.service.js';
-import type { BusinessRegistrationRequest } from '../../types/api.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { http } from '../../utils/error.util';
+import config from '../../config/index';
+import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware';
+import { validateBusinessRegistration, rateLimitBusinessRegistration } from '../../middleware/businessRegistration.middleware';
+import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware';
+import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware';
+import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware';
+import { documentsApiService } from '../../services/documentsApi.service';
+import type { BusinessRegistrationRequest } from '../../types/api';
 
 /**
  * Helper middleware to authenticate customer API keys.

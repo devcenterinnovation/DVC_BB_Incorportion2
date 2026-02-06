@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { registerAuthRoutes } from './auth.routes.js';
-import { registerDashboardRoutes } from './dashboard.routes.js';
-import { registerSystemRoutes } from './system.routes.js';
-import { registerMonitoringRoutes } from './monitoring.routes.js';
-import adminCustomersRoutes from './customers.routes.js';
-import { registerVerificationRoutes } from './verification.register.js';
-import { registerPricingRoutes } from './pricing.routes.js';
-import { adminManagementRouter } from './admin.routes.js';
+import { registerAuthRoutes } from './auth.routes';
+import { registerDashboardRoutes } from './dashboard.routes';
+import { registerSystemRoutes } from './system.routes';
+import { registerMonitoringRoutes } from './monitoring.routes';
+import adminCustomersRoutes from './customers.routes';
+import { registerVerificationRoutes } from './verification.register';
+import { registerPricingRoutes } from './pricing.routes';
+import { adminManagementRouter } from './admin.routes';
 
 /**
  * ===================================================================

@@ -1,10 +1,10 @@
 import { Router, type Request, type Response } from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import { CustomerStore } from '../../services/customerPortal.store.js';
-import { CustomerService } from '../../services/customer.service.js';
-import { signJwt } from '../../utils/jwt.util.js';
-import { http } from '../../utils/error.util.js';
+import { CustomerStore } from '../../services/customerPortal.store';
+import { CustomerService } from '../../services/customer.service';
+import { signJwt } from '../../utils/jwt.util';
+import { http } from '../../utils/error.util';
 
 /**
  * ===================================================================
@@ -96,7 +96,7 @@ export function registerAuthRoutes(router: Router) {
       }
 
       // Check if email already exists in primary database (persistent)
-      const existingDb = await (await import('../../database/index.js')).database.getCustomerByEmail(email);
+      const existingDb = await (await import('../../database/index')).database.getCustomerByEmail(email);
       if (existingDb) {
         return http.conflict(res, 'EMAIL_EXISTS', 'An account with this email already exists', undefined, req);
       }
@@ -179,7 +179,7 @@ export function registerAuthRoutes(router: Router) {
       }
       
       // FIXED: First check the persistent database for customer existence
-      const dbCustomer = await (await import('../../database/index.js')).database.getCustomerByEmail(email);
+      const dbCustomer = await (await import('../../database/index')).database.getCustomerByEmail(email);
       if (!dbCustomer) {
         return http.unauthorized(res, 'INVALID_CREDENTIALS', 'Invalid email or password', undefined, req);
       }
@@ -195,7 +195,7 @@ export function registerAuthRoutes(router: Router) {
       // If customer exists in portal store but DB is missing password hash, persist it
       if (customer && !(dbCustomer as any).passwordHash) {
         try {
-          await (await import('../../database/index.js')).database.updateCustomer(dbCustomer.id, {
+          await (await import('../../database/index')).database.updateCustomer(dbCustomer.id, {
             passwordHash: customer.passwordHash
           });
         } catch (updateError) {
@@ -295,7 +295,7 @@ export function registerAuthRoutes(router: Router) {
         return http.badRequest(res, 'MISSING_FIELDS', 'Email is required', undefined, req);
       }
 
-      const db = await import('../../database/index.js');
+      const db = await import('../../database/index');
       const customer = await db.database.getCustomerByEmail(email);
 
       // Always return success to avoid user enumeration
@@ -358,7 +358,7 @@ export function registerAuthRoutes(router: Router) {
       }
 
       const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
-      const db = await import('../../database/index.js');
+      const db = await import('../../database/index');
       const customer = await db.database.getCustomerByResetTokenHash(tokenHash);
 
       if (!customer || !customer.resetTokenExpires || customer.resetTokenExpires < new Date()) {

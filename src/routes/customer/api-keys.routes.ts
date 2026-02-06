@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
-import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware.js';
-import { CustomerService } from '../../services/customer.service.js';
-import { http } from '../../utils/error.util.js';
+import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware';
+import { CustomerService } from '../../services/customer.service';
+import { http } from '../../utils/error.util';
 
 /**
  * ===================================================================
@@ -190,7 +190,7 @@ export function registerApiKeysRoutes(router: Router) {
       }
       
       // Verify the key belongs to this customer before revoking
-      const key = await (await import('../../database/index.js')).database.getApiKey(keyId);
+      const key = await (await import('../../database/index')).database.getApiKey(keyId);
       
       if (!key || key.customerId !== jwt.customerId) {
         return http.notFound(res, 'KEY_NOT_FOUND', 'API key not found or does not belong to you', undefined, req);

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { businessRouter } from './business/index.js';
-import adminRouter from './admin/index.js';
-import { customerRouter } from './customer/index.js';
-import qoreidUtilityRoutes from './utility/qoreid.routes.js';
+import { businessRouter } from './business/index';
+import adminRouter from './admin/index';
+import { customerRouter } from './customer/index';
+import qoreidUtilityRoutes from './utility/qoreid.routes';
 
 const router = Router();
 

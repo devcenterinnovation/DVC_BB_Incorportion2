@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import { http } from '../utils/error.util.js';
+import { http } from '../utils/error.util';
 import { randomUUID } from 'crypto';
 import winston from 'winston';
-import type { AuditLogEntry, RequestContext } from '../types/api.js';
+import type { AuditLogEntry, RequestContext } from '../types/api';
 
 // Note: Request interface extensions are consolidated in types/index.ts
 

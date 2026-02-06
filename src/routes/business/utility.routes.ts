@@ -1,10 +1,10 @@
 import { Router, type Request, type Response } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware';
 // usageLogger removed - applied at app level in app.ts
-import { CustomerService } from '../../services/customer.service.js';
-import { cacStoreProductsService } from '../../services/cacStoreProducts.service.js';
-import { http } from '../../utils/error.util.js';
+import { CustomerService } from '../../services/customer.service';
+import { cacStoreProductsService } from '../../services/cacStoreProducts.service';
+import { http } from '../../utils/error.util';
 
 /**
  * ===================================================================

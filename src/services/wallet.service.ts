@@ -13,8 +13,8 @@ import {
   WalletTransactionStatus,
   PaymentMethod,
   ListOptions 
-} from '../database/index.js';
-import { PricingService } from './pricing.service.js';
+} from '../database/index';
+import { PricingService } from './pricing.service';
 
 // Custom error classes for wallet operations
 export class InsufficientBalanceError extends Error {

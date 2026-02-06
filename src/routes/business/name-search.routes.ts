@@ -1,13 +1,13 @@
 import { Router, type Request, type Response } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { http } from '../../utils/error.util.js';
-import { validateContentType, sanitizeInput, validateNameSimilaritySearch } from '../../middleware/validation.middleware.js';
-import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware.js';
-import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware.js';
-import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { http } from '../../utils/error.util';
+import { validateContentType, sanitizeInput, validateNameSimilaritySearch } from '../../middleware/validation.middleware';
+import { authenticateCustomer, trackUsage } from '../../middleware/customerAuth.middleware';
+import { requireVerifiedBusiness } from '../../middleware/verificationCheck.middleware';
+import { checkWalletBalance, chargeWallet } from '../../middleware/wallet.middleware';
 // usageLogger removed - applied at app level in app.ts
-import { cacApiService } from '../../services/cacApi.service.js';
-import type { NameSearchRequest } from '../../types/api.js';
+import { cacApiService } from '../../services/cacApi.service';
+import type { NameSearchRequest } from '../../types/api';
 
 // Registers business name search routes on the provided router.
 // This preserves the exact public path used previously:

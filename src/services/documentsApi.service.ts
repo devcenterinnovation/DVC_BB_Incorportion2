@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance, type AxiosResponse, AxiosError } from 'axios';
-import { ExternalApiError, TimeoutError } from '../types/errors.js';
-import type { NameSearchRequest, NameSearchResponse, RequestContext, BusinessRegistrationRequest, BusinessRegistrationResponse } from '../types/api.js';
+import { ExternalApiError, TimeoutError } from '../types/errors';
+import type { NameSearchRequest, NameSearchResponse, RequestContext, BusinessRegistrationRequest, BusinessRegistrationResponse } from '../types/api';
 
 // Documents.com.ng API service with enterprise-grade reliability
 export class DocumentsApiService {

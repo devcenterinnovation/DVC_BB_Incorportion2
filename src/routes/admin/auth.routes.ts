@@ -5,8 +5,8 @@ import {
   getAdminProfile,
   updateAdminProfile,
   changeAdminPassword
-} from '../../middleware/admin.middleware.js';
-import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware.js';
+} from '../../middleware/admin.middleware';
+import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware';
 
 /**
  * ===================================================================

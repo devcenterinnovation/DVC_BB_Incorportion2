@@ -10,7 +10,7 @@
  * - Token is cached in database with expiry tracking
  */
 
-import { database } from '../database/index.js';
+import { database } from '../database/index';
 
 interface QoreIDTokenData {
   accessToken: string;

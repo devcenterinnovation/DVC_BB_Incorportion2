@@ -1,4 +1,4 @@
-import type { PaginationParams, PaginationMeta } from '../types/api.js';
+import type { PaginationParams, PaginationMeta } from '../types/api';
 
 /**
  * Default pagination settings

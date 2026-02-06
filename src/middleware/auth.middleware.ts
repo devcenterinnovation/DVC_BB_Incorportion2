@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import { signJwt, verifyJwt } from '../utils/jwt.util.js';
-import { AuthenticationError, AuthorizationError } from '../types/errors.js';
-import type { AuthenticatedUser } from '../types/index.js';
-import { HttpStatus } from '../types/index.js';
+import { signJwt, verifyJwt } from '../utils/jwt.util';
+import { AuthenticationError, AuthorizationError } from '../types/errors';
+import type { AuthenticatedUser } from '../types/index';
+import { HttpStatus } from '../types/index';
 
 // Note: Request interface extensions are consolidated in types/index.ts
 

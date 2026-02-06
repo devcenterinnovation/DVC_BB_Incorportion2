@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import { requireAdminAuth } from './admin.middleware.js';
-import { authenticateCustomer } from './customerAuth.middleware.js';
-import { http } from '../utils/error.util.js';
+import { requireAdminAuth } from './admin.middleware';
+import { authenticateCustomer } from './customerAuth.middleware';
+import { http } from '../utils/error.util';
 
 // Combined authentication: allows admin (Bearer admin JWT) OR customer (API key ck_...)
 export async function authenticateAdminOrCustomer(req: Request, res: Response, next: NextFunction): Promise<any> {

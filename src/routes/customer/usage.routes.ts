@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware.js';
-import { CustomerStore } from '../../services/customerPortal.store.js';
-import { database } from '../../database/index.js';
-import { http } from '../../utils/error.util.js';
+import { authenticateCustomerJWT } from '../../middleware/customerJwt.middleware';
+import { CustomerStore } from '../../services/customerPortal.store';
+import { database } from '../../database/index';
+import { http } from '../../utils/error.util';
 
 /**
  * ===================================================================

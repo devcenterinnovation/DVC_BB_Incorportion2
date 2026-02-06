@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import { ApiError, sendError } from '../utils/error.util.js';
-import { sanitizeError, sanitizeErrorDetails } from '../utils/errorSanitizer.util.js';
-import config from '../config/index.js';
+import { ApiError, sendError } from '../utils/error.util';
+import { sanitizeError, sanitizeErrorDetails } from '../utils/errorSanitizer.util';
+import config from '../config/index';
 
 /**
  * Global error handling middleware

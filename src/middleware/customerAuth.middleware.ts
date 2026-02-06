@@ -5,8 +5,8 @@
 
 import bcrypt from 'bcrypt';
 import { Request, Response, NextFunction } from 'express';
-import { CustomerService } from '../services/customer.service.js';
-import { http } from '../utils/error.util.js';
+import { CustomerService } from '../services/customer.service';
+import { http } from '../utils/error.util';
 
 // NOTE: DB-only verification; no portal store fallback at runtime.
 

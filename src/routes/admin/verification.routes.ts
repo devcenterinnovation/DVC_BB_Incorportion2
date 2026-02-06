@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware.js';
-import { http } from '../../utils/error.util.js';
-import { database } from '../../database/index.js';
-import { verificationStorage } from '../../services/verificationStorage.service.js';
+import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware';
+import { http } from '../../utils/error.util';
+import { database } from '../../database/index';
+import { verificationStorage } from '../../services/verificationStorage.service';
 import fs from 'fs';
 
 const router = Router();

@@ -1,4 +1,4 @@
-import type { ApiResponse } from './index.js';
+import type { ApiResponse } from './index';
 
 // Pagination types
 export interface PaginationParams {

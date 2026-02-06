@@ -1,4 +1,4 @@
-import { database } from '../database/index.js';
+import { database } from '../database/index';
 
 function currentBillingPeriod(): string {
   const now = new Date();

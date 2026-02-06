@@ -19,12 +19,12 @@ import { Router } from 'express';
  * - wallet.routes.ts: Wallet balance, transactions, top-up via Paystack
  */
 
-import { registerAuthRoutes } from './auth.routes.js';
-import { registerProfileRoutes } from './profile.routes.js';
-import { registerApiKeysRoutes } from './api-keys.routes.js';
-import { registerUsageRoutes } from './usage.routes.js';
-import { registerVerificationRoutes } from './verification.register.js';
-import { registerWalletRoutes } from './wallet.routes.js';
+import { registerAuthRoutes } from './auth.routes';
+import { registerProfileRoutes } from './profile.routes';
+import { registerApiKeysRoutes } from './api-keys.routes';
+import { registerUsageRoutes } from './usage.routes';
+import { registerVerificationRoutes } from './verification.register';
+import { registerWalletRoutes } from './wallet.routes';
 
 export const customerRouter = Router();
 

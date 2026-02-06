@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import { http } from '../utils/error.util.js';
-import { ValidationError } from '../types/errors.js';
-import type { NameSearchRequest } from '../types/api.js';
+import { http } from '../utils/error.util';
+import { ValidationError } from '../types/errors';
+import type { NameSearchRequest } from '../types/api';
 
 /**
  * Validate that a field is not empty or undefined

@@ -8,12 +8,12 @@ import bcrypt from 'bcrypt';
 import { 
   requireAdminAuth, 
   requireAdminPermission 
-} from '../../middleware/admin.middleware.js';
-import { http } from '../../utils/error.util.js';
-import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware.js';
-import { database } from '../../database/index.js';
-import { Admin, AdminData, AdminRole } from '../../database/index.js';
-import { AVAILABLE_PERMISSIONS, DEFAULT_PERMISSIONS } from '../../types/admin.permissions.js';
+} from '../../middleware/admin.middleware';
+import { http } from '../../utils/error.util';
+import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware';
+import { database } from '../../database/index';
+import { Admin, AdminData, AdminRole } from '../../database/index';
+import { AVAILABLE_PERMISSIONS, DEFAULT_PERMISSIONS } from '../../types/admin.permissions';
 
 const router = Router();
 

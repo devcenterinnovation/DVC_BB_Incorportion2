@@ -1,6 +1,6 @@
 // Request timeout middleware for Express
 import type { Request, Response, NextFunction } from 'express';
-import { TimeoutError } from '../types/errors.js';
+import { TimeoutError } from '../types/errors';
 
 /**
  * Global request timeout middleware

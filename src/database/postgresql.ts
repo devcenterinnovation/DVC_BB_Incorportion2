@@ -24,7 +24,7 @@ import {
   WalletTransactionStatus,
   ServicePricing,
   ServicePricingData
-} from './index.js';
+} from './index';
 
 import type { Pool, QueryResult } from 'pg';
 

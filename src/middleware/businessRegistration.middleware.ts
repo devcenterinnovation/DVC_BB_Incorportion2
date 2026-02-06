@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { http } from '../utils/error.util.js';
-import type { BusinessRegistrationRequest } from '../types/api.js';
+import { http } from '../utils/error.util';
+import type { BusinessRegistrationRequest } from '../types/api';
 
 /**
  * Comprehensive validation middleware for business registration

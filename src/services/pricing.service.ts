@@ -4,7 +4,7 @@
  * Prices are stored in kobo (100 kobo = ₦1)
  */
 
-import { database, ServicePricing, ServicePricingData } from '../database/index.js';
+import { database, ServicePricing, ServicePricingData } from '../database/index';
 
 // Default pricing in kobo (from valv.txt)
 const DEFAULT_PRICING: Omit<ServicePricingData, 'isActive'>[] = [

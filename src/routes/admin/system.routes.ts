@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { asyncHandler } from '../../middleware/error.middleware.js';
-import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware.js';
-import { authenticateApiKey, authorize } from '../../middleware/auth.middleware.js';
-import { AdminStore } from '../../services/admin.store.js';
-import { http } from '../../utils/error.util.js';
+import { asyncHandler } from '../../middleware/error.middleware';
+import { requireAdminAuth, requireAdminPermission } from '../../middleware/admin.middleware';
+import { authenticateApiKey, authorize } from '../../middleware/auth.middleware';
+import { AdminStore } from '../../services/admin.store';
+import { http } from '../../utils/error.util';
 
 /**
  * ===================================================================
@@ -168,7 +168,7 @@ router.post(
       try {
         const limit = Math.max(1, Math.min(200, parseInt(String(req.query.limit || '50'), 10) || 50));
         
-        const { database } = await import('../../database/index.js');
+        const { database } = await import('../../database/index');
         
         // Get current period
         const now = new Date();

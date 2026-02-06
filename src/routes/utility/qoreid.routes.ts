@@ -6,8 +6,8 @@
  */
 
 import { Router, type Request, type Response } from 'express';
-import { QoreIDTokenService } from '../../services/qoreid.token.service.js';
-import { http } from '../../utils/error.util.js';
+import { QoreIDTokenService } from '../../services/qoreid.token.service';
+import { http } from '../../utils/error.util';
 
 const router = Router();
 

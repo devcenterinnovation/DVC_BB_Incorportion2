@@ -7,11 +7,11 @@ import { Router, Request, Response } from 'express';
 import { 
   requireAdminAuth, 
   requireAdminPermission 
-} from '../../middleware/admin.middleware.js';
-import { http } from '../../utils/error.util.js';
-import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware.js';
-import { CustomerService, CreateCustomerRequest, CreateApiKeyRequest } from '../../services/customer.service.js';
-import { database } from '../../database/index.js';
+} from '../../middleware/admin.middleware';
+import { http } from '../../utils/error.util';
+import { validateContentType, sanitizeInput } from '../../middleware/validation.middleware';
+import { CustomerService, CreateCustomerRequest, CreateApiKeyRequest } from '../../services/customer.service';
+import { database } from '../../database/index';
 
 const router = Router();
 
