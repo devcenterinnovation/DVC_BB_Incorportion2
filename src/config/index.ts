@@ -13,10 +13,12 @@ import path from 'path';
 // It contains the directory path of the current module
 const rootDir = path.resolve(__dirname, '../..');
 
-// Load environment variables from project root
+// Load environment variables from project root (only for local development)
+// On Render/production, env vars are set directly by the platform
 const result = dotenv.config({ path: path.join(rootDir, '.env') });
 
-if (result.error) {
+// Only warn in development if .env is missing
+if (result.error && process.env.NODE_ENV !== 'production') {
   console.warn('[Config] Warning: Could not load .env file:', result.error.message);
 }
 
